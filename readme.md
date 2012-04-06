@@ -354,17 +354,31 @@ session.addListener( {
 
 The obj parameter for each listener object function contains the following parameters:
 
-* contextCreated:     function( session, context )
-* contextDestroyed:   function( session, context )
-* finalStateReached:  function( session )
-* stateChanged:       function( session, context, newState, message )
-* customEvent:        function( session, message )
+* **contextCreated**:     function( session, context )
+* **contextDestroyed**:   function( session, context )
+* **finalStateReached**:  function( session )
+* **stateChanged**:       function( session, context, newState, message )
+* **customEvent**:        function( session, message )
 
 In all cases:
 
-session:    is the FSM created session.
-context:    is an internal FSM object. A context is just a holder for the current state for each subState the system enters.
-newState:   a FSM state object.
-message:    a message object. The only constraint for these message objects is they must have a "msgId" field.
+* **session**:    is the FSM created session.
+* **context**:    is an internal FSM object. A context is just a holder for the current state for each subState the system enters.
+* **newState**:   a FSM state object.
+* **message**:    a message object. The only constraint for these message objects is they must have a "msgId" field.
 
 ##Custom events
+
+The preferred way for sending custom events will by calling:
+```javascript
+session.fireCustomEvent( a_json_object );
+```
+
+and have a listener/observer object attached to the sending FSM session.
+This method will be notified on the method
+
+```javascript
+customEvent         : function( { session: session, customEvent: a_json_object } ) {
+```
+
+
