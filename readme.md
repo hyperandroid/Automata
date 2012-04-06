@@ -390,6 +390,9 @@ This method will be notified on the method
 customEvent         : function( { session: session, customEvent: a_json_object } ) {
 ```
 
+
+
+
 #Samples
 
 ##Sample 1 - Simple FSM
@@ -473,6 +476,9 @@ session2.dispatch( { msgId: "ab" } );
 This sample show how to define a timed transition.
 
 ```javascript
+
+context= module.exports;
+
 context.registerFSM( {
 
     name    : "Test2",
@@ -485,10 +491,10 @@ context.registerFSM( {
             onExit  : function( session, state, transition, msg ) {
                 console.log("Exit a");
             },
-            onTimer : {
-                timeout: 4000,
+            onTimer : {         // <-- Timed transition.
+                timeout: 4000,  //  after 4 seconds
                 event: {
-                    msgId: "ab"
+                    msgId: "ab" //  fire transition identified by "ab" if exists.
                 }
             }
         },
@@ -517,9 +523,24 @@ context.registerFSM( {
     ]
 } );
 
-var session= context.createSession("Test2");
+var session1= context.createSession("Test2");
 
-// will print Exit a, Enter b after 4 seconds.
+var session2= context.createSession("Test2");
+session2.dispatch( {msgId : "ab"} );
+
+/*
+will print:
+
+immediately
+Exit a
+Enter b
+from session2 which has triggered a transition change
+
+and
+Exit a
+Enter b
+after 4 seconds from session1.
+*/
 
 ```
 
