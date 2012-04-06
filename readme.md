@@ -92,10 +92,11 @@ The FSM logic and state is ketp apart on a custom object the developer supplies 
 This must be a constructor function and will create a new object per session.
 Methods on this object can be automatically invoked by the framework by assigning them to the activity hook values
 available on State and Transition objects.
-The hooks points can be either an string, identifying a function in the logic object, or a callback function of the form:
+The hooks points can be either an string, identifying a logic object function or a callback function. In either case, the
+ function is of the form:
 
 ```javascript
-function( state, transition, session, msg );
+function( session, state, transition, msg );
 ```
 
 In either case, the calling **this** scope will be the logic object itself.
@@ -389,4 +390,139 @@ This method will be notified on the method
 customEvent         : function( { session: session, customEvent: a_json_object } ) {
 ```
 
+#Samples
 
+##Sample 1 - Simple FSM
+
+This sample shows how to define common FSM session callback points. Either on logic object, or by defining a callback.
+In either case, **this** is defined to be the session's logic object.
+
+```javascript
+
+context= module.exports;
+
+var Logic= function() {
+
+    this.enter= function( session, state, transition, msg ) {
+        console.log("enter "+state.toString());
+    };
+
+    this.exit= function( session, state, transition, msg ) {
+        console.log("exit "+state.toString());
+    };
+
+    this.action= function( session, state, transition, msg ) {
+        console.log("transition: "+transition.toString());
+    };
+};
+
+context.registerFSM( {
+
+    name    : "Test1",
+    logic   : Logic,
+
+    state  : [
+        {
+            name    : "a",
+            initial : true,
+            onEnter : "enter",
+            onExit  : "exit"
+        },
+        {
+            name    : "b",
+            onEnter : "enter",
+            onExit  : "exit"
+        },
+        {
+            name    : "c",
+            onEnter : function( session, state, transition, msg ) {
+                console.log("Enter c");
+            },
+            onExit  : function( session, state, transition, msg ) {
+                console.log("Exit c");
+            }
+        }
+    ],
+
+    transition : [
+        {
+            event       : "ab",
+            from        : "a",
+            to          : "b",
+            onTransition: "action"
+        },
+        {
+            event   : "bc",
+            from    : "b",
+            to      : "c",
+            onTransition: "action"
+        }
+    ]
+} );
+
+var session= context.createSession("Test1");
+session.dispatch( { msgId: "ab" } );
+
+var session2= context.createSession("Test1");
+session2.dispatch( { msgId: "ab" } );
+
+```
+
+##Sample 2 - FSM with timed events
+
+This sample show how to define a timed transition.
+
+```javascript
+context.registerFSM( {
+
+    name    : "Test2",
+    logic   : function() { return this; },
+
+    state  : [
+        {
+            name    : "a",
+            initial : true,
+            onExit  : function( session, state, transition, msg ) {
+                console.log("Exit a");
+            },
+            onTimer : {
+                timeout: 4000,
+                event: {
+                    msgId: "ab"
+                }
+            }
+        },
+        {
+            name    : "b",
+            onEnter : function( session, state, transition, msg ) {
+                console.log("Enter b");
+            }
+        },
+        {
+            name    : "c"
+        }
+    ],
+
+    transition : [
+        {
+            event       : "ab",
+            from        : "a",
+            to          : "b"
+        },
+        {
+            event   : "bc",
+            from    : "b",
+            to      : "c"
+        }
+    ]
+} );
+
+var session= context.createSession("Test2");
+
+// will print Exit a, Enter b after 4 seconds.
+
+```
+
+## Sample 3 - Guards
+
+## Sample 4 - SubStates

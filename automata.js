@@ -448,6 +448,10 @@ var module= module || {};
 
             session.callMethod( this.onTransition, this.initialState,this,msg );
             this.finalState.callOnEnter( session, this, msg );
+        },
+
+        toString : function() {
+            return ""+this.event;
         }
     };
 
@@ -573,6 +577,10 @@ var module= module || {};
                 fsmContext.removeTimerTask( session.getProperty( this.__getTimerKey() ) );
             }
             session.callMethod( this.onExit, this, transition, msg );
+        },
+
+        toString : function() {
+            return ""+this.name;
         }
 
     };
@@ -611,7 +619,7 @@ var module= module || {};
 
             var me= this;
 
-            this.setOnEnter( function( state, transition, session, msg ) {
+            this.setOnEnter( function( session, state, transition, msg ) {
                 me.initialTransition.fireTransition( {
                         msgId : __InitialTransitionId
                     },
@@ -620,7 +628,7 @@ var module= module || {};
 
             this.initialState=                  initialState;
             this.initialTransition=             new FSM.Transition(__InitialTransitionId, null, initialState );
-            this.initialTransition.setOnTransition( function( state, transition, session, msg ) {
+            this.initialTransition.setOnTransition( function( session, state, transition, msg ) {
                 session.push( me.initialState );
             });
         },
@@ -752,11 +760,13 @@ var module= module || {};
                 return;
             }
 
+            args.splice(0,0,this);
+
             if ( typeof method==="function" ) {
-                method.call( this.logic, args[0], args[1], this, args[2] );
+                method.apply( this.logic, args );
             } else {
                 if ( typeof this.logic[method]!=="undefined" ) {
-                    this.logic[ method ].call( this.logic, args );
+                    this.logic[ method ].apply( this.logic, args );
                 }
             }
         },

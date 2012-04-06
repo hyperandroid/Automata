@@ -84,7 +84,7 @@ context.registerFSM( {
         },
         {
             name    : "2",
-            onEnter : function( state, transition, session, msg) {
+            onEnter : function( session, state, transition, msg) {
                 this.__count=7;
                 session.dispatch( {
                     msgId : "23"
@@ -142,7 +142,7 @@ context.registerFSM( {
             event       : "ab",
             from        : "a",
             to          : "b",
-            onAction    : "action_tr_ab",
+            onTransition: "action_tr_ab",
             onPreGuard  : "pre_guard_tr_ab",
             onPostGuard : "post_guard_tr_ab"
         },
@@ -217,6 +217,20 @@ console.log("..");
 
 session.printStackTrace();
 console.log("..");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 </script>
 </body>
