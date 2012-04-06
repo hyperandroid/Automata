@@ -300,7 +300,7 @@ suitable transition for a given incoming message regardless of its nesting level
 So for any given FSM stacktrace, the engine will traverse upwards trying to find a suitable state to fire a
 transition for the dispatched event.
 
-(Warning, offending ascii art)
+(Warning, offending ascii art. States between parenthesis, transitions between square brackets.)
 <pre>
 (ROOT)
   |
