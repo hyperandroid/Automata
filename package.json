@@ -1,0 +1,19 @@
+{
+    "name" : "Automata",
+    "version" : "1.0.0",
+    "main" : "automata.js",
+    "keywords" : "FSM, state machine, automata",
+    "url" : "https://github.com/hyperandroid/automata",
+    author : {
+        "name"  : "hyperandroid"
+      , "email" : "hyperandroid@gmail.com"
+      , "url"   : "http://labs.hyperandroid.com"
+    },
+    "description" : "Automata is a formal Finite State Machine automata executor featuring: a JSON based automata creation, timed transitions, sub-states, guards, FSM registry, etc.",
+    "repository" :
+        { "type" : "git"
+        , "url" : "http://github.com/hyperandroid/automata.git"
+        }
+
+
+}
