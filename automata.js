@@ -806,4 +806,4 @@ var module= module || {};
         createSession   : createSession
     };
 
-})(window);
+})( typeof window!=='undefined' ? window : global );
