@@ -1,4 +1,6 @@
 /**
+ * @author Ibon Tolosana, @hyperandroid
+ *
  * See LICENSE file.
  *
  */
@@ -10,6 +12,13 @@ var module= module || {};
 
 (function(root) {
 
+
+    /**
+     * Regular extension mechanism.
+     *
+     * @param subc <object> object to subclass
+     * @param superc <object> object to subclass from
+     */
     function extend(subc, superc) {
         var subcp = subc.prototype;
 
@@ -36,6 +45,9 @@ var module= module || {};
         }
     }
 
+    /**
+     * Bind mechanism. Honors already existing bind functions.
+     */
     Function.prototype.bind= Function.prototype.bind || function( /* this */ ) {
 
         var fn=     this;                                   // the function
@@ -47,22 +59,42 @@ var module= module || {};
         };
     };
 
-
+    /**
+     * TimerTask sequence.
+     */
     var __TimerIndex= 0;
+
+    /**
+     * State creation sequence
+     */
     var __StateIndex= 0;
+
+    /**
+     * Initial transition msgId identification.
+     */
     var __InitialTransitionId= "__initial_transition_id";
+
+    /**
+     * Automata system context object. Supposed to be unique.
+     */
     var fsmContext= null;
 
+    /**
+     * Local module definition.
+     */
     var FSM= {};
 
     /**
      * FSMTimerTask
      *
+     * This object encapsulates a task timer.
+     * They are automatically defined by setting an onTimer block in a state definition.
+     *
      * @constructor
-     * @param session
-     * @param event
-     * @param time
-     * @param id
+     * @param session <FSM.Session> a session object
+     * @param event   <object> a message object.
+     * @param time    <number> an integer specifying milliseconds.
+     * @param id      <number> a unique integer value.
      */
     FSM.TimerTask= function( session, event, time, id ) {
         this.session=       session;
@@ -85,14 +117,25 @@ var module= module || {};
         consumed        : false,
         id              : 0,
 
+        /**
+         * Has this timer task already been fired ?
+         */
         isConsumed  : function() {
             return this.consumed;
         },
 
+        /**
+         * Is this timer task on time so that it must be triggered ?
+         * @param t
+         */
         isExpired : function( t ) {
             return this.scheduleTime + this.triggerTime < t;
         },
 
+        /**
+         * This is the timer task control function.
+         * @param t
+         */
         consume : function( t ) {
             if ( this.isConsumed() ) {
                 return true;
@@ -114,6 +157,9 @@ var module= module || {};
     /**
      *
      * FSMContext
+     * FSMContext is the core of the Automata engine. It server as Finite State Machines registry, timer task
+     * manager, FSM session creation, etc.
+     * It is intended to be a unique object.
      *
      * @constructor
      *
@@ -132,6 +178,12 @@ var module= module || {};
         timerTasks  : null,
         registry    : null,
 
+        initialized : false,
+
+        /**
+         * Check every FSM running session pending timer tasks.
+         * @private
+         */
         __checkTimers : function() {
 
             var time= new Date().getTime();
@@ -144,23 +196,58 @@ var module= module || {};
             }
         },
 
+        /**
+         * Initialize Automata's engine.
+         */
         initialize : function() {
+            if ( this.initialized ) {
+                throw "Automata already initialized.";
+            }
+
             this.timerId= root.setInterval( this.__checkTimers.bind(this), 200 );
+            this.initialized= true;
             return this;
         },
 
+        /**
+         * Shutdown Automata's engine.
+         * Pending timer tasks won't be notified.
+         */
         destroy : function() {
             root.clearInterval( this.timerId );
         },
 
+        /**
+         * Register a new FSM.
+         * This is the first step to have a running FSM session in Automata engine.
+         *
+         * @param name <string> a FSM name.
+         * @param fsm <FSM.FSM> an FSM object instance.
+         */
         registerFSM : function( name, fsm ) {
+            if ( this.registry[name] ) {
+                throw "'"+name+"' FSM already registered.";
+            }
+
             this.registry[ name ]= fsm;
         },
 
+        /**
+         * Get a FSM.FSM registered instance.
+         *
+         * @param name
+         * @private
+         */
         getFSM : function( name ) {
             return this.registry[ name ];
         },
 
+        /**
+         * Create a given FSM session.
+         * @param fromFSM <string> a FSM name. Must be previously registered by calling registerFSM function.
+         *
+         * @return <FSM.Session> an initialized session object.
+         */
         createSession : function( fromFSM ) {
 
             var fsm= this.registry[ fromFSM ];
@@ -171,12 +258,33 @@ var module= module || {};
             return fsm.createSession();
         },
 
+        /**
+         * Add a new Timer Task.
+         * A timer task means sending a message to a given FSM session after elapsing some time.
+         * It is automatically managed by onTimer block definition.
+         *
+         * Should not be called directly.
+         *
+         * @param session <FSM.Session> a session object
+         * @param event <object> a message object
+         * @param time <number> an integer indicating milliseconds.
+         *
+         * @return <number> a unique timertask id.
+         */
         addTimerTask : function( session, event, time ) {
             var id= __TimerIndex++;
             this.timerTasks.push( new FSM.TimerTask( session, event, time, id ) );
             return id;
         },
 
+        /**
+         * Remove a previously set timer task.
+         * It is automatically managed by onTimer block definition.
+         *
+         * Should not be called directly.
+         *
+         * @param id
+         */
         removeTimerTask : function( id ) {
             for( var i=0; i<this.timerTasks.length; i++ ) {
                 if ( this.timerTasks[i].id===id ) {
@@ -191,6 +299,9 @@ var module= module || {};
 
     /**
      * FSMTransition
+     * An Automata framework transition.
+     * This class is private and should not be dealed with directly.
+     * Any given Transition which belongs to a FSM object is unique isntance.
      *
      * @constructor
      */
@@ -216,25 +327,47 @@ var module= module || {};
         onPreGuard      : null,
         onPostGuard     : null,
 
+        /**
+         * return this transition's firing event.
+         */
         getEvent : function() {
             return this.event;
         },
 
+        /**
+         * Set this transition's pre guard function or function name form the logic object.
+         *
+         * @param m <function|string>
+         */
         setOnPreGuard : function( m ) {
             this.onPreGuard= m;
             return this;
         },
 
+        /**
+         * Set this transition's post guard function or function name form the logic object.
+         *
+         * @param m <function|string>
+         */
         setOnPostGuard : function( m ) {
             this.onPostGuard= m;
             return this;
         },
 
+        /**
+         * Set this transition's callback function executed when the transition is fired.
+         * @param m <function|string>
+         */
         setOnTransition : function( m ) {
             this.onTransition= m;
             return this;
         },
 
+        /**
+         * Do this transition's pre-transition code
+         * @param msg <object>
+         * @param session <FSM.Session>
+         */
         firePreTransition : function( msg, session) {
             if ( this.initialState!=null ) {
                 this.initialState.callOnExit( session, this, msg );
@@ -243,11 +376,22 @@ var module= module || {};
             session.callMethod( this.onTransition, this.initialState, this, msg );
         },
 
+        /**
+         * Do this transition's post-transition code
+         * @param msg <object>
+         * @param session <FSM.Session>
+         */
         firePostTransition : function( msg, session) {
             this.finalState.callOnEnter( session, this, msg );
         },
 
-
+        /**
+         * Do this transition's pre-transition code. Though it may seem equal to firePreTransition it is handled
+         * in another function because an exception could be throws. In such case a pre-guard is assumed to have
+         * been fired.
+         * @param msg
+         * @param session
+         */
         firePreTransitionGuardedByPostCondition : function( msg, session ) {
             if ( this.initialState!=null ) {
                 this.initialState.callOnExit( session, this, msg );
@@ -256,20 +400,47 @@ var module= module || {};
             session.callMethod( this.onTransition, this.initialState, this, msg);
         },
 
+        /**
+         * Do this transition's post-transition code. Though it may seem equal to firePreTransition it is handled
+         * in another function because an exception could be throws. In such case a pre-guard is assumed to have
+         * been fired.
+         * @param msg
+         * @param session
+         */
         firePostTransitionGuardedByPostCondition : function( msg, session ) {
             if ( this.initialState!=null ) {
                 session.callMethod( this.initialState.onEnter, this.initialState, this, msg );
             }
         },
 
+        /**
+         * Fire pre-Guard code.
+         * If the method throws an exception, this transition is aborted as if it hadn't been fired.
+         * @param msg
+         * @param session
+         */
         checkGuardPreCondition : function( msg, session ) {
             session.callMethod( this.onPreGuard, this.initialState, this, msg );
         },
 
+        /**
+         * Fire post-Guard code.
+         * If the method throws an exception, this transition is vetoed, and it will issue an auto-transition instead
+         * of a state-to-state transition.
+         * @param msg
+         * @param session
+         */
         checkGuardPostCondition : function( msg, session ) {
             session.callMethod( this.onPostGuard, this.initialState, this, msg );
         },
 
+        /**
+         * Notify observers about this transition fire event.
+         * @param msg <object> the message which fired this transition
+         * @param session <FSM.Session>
+         *
+         * @private
+         */
         fireTransition : function( msg, session ) {
             if ( this.initialState!==null ) {
                 this.initialState.callOnExit( session, this, msg );
@@ -282,6 +453,7 @@ var module= module || {};
 
     /**
      * FSMState
+     * This object defines a FSM state.
      *
      * @constructor
      */
@@ -305,7 +477,8 @@ var module= module || {};
         subState        : null,
 
         /**
-         *
+         * Add an exit transition to this State instance.
+         * This transition must be uniquely added.
          * @param tr <FSM.FSMTransition>
          */
         addTransition : function( tr ) {
@@ -321,36 +494,62 @@ var module= module || {};
             return this;
         },
 
+        /**
+         * Check whether this state has exiting transitions.
+         * If not, will be defined as final.
+         */
         isFinalState : function() {
             return this.exitTransitions.count===0;
         },
 
+        /**
+         * Set this state's onEnter callback function.
+         * @param c <String|function>
+         */
         setOnEnter : function( c ) {
             this.onEnter= c;
             return this;
         },
 
+        /**
+         * Set this state's onExit callback function.
+         * @param c <String|function>
+         */
         setOnExit : function( c ) {
             this.onExit= c;
             return this;
         },
 
+        /**
+         * Add a timed transition to this state.
+         * @param c <object< timeout: <number>, event: <object> >
+         */
         setOnTimer : function( c ) {
             this.onTimer= c;
         },
 
-        setSubState : function( c ) {
-            this.subState= c;
-        },
-
+        /**
+         * Get a transition for the defined typeof message.
+         * @param msg <string>
+         */
         getTransitionFor : function( msg ) {
             return this.exitTransitions[ msg.msgId ];
         },
 
+        /**
+         * @private
+         */
         __getTimerKey : function( ) {
             return this.name + "#" + this.onTimer.event;
         },
 
+        /**
+         * Execute the procedure on entering this State.
+         * It may seem to set a timer, and calling the optional onEnter callback function.
+         * @param session <FSM.Session>
+         * @param transition <FSM.Transition>
+         * @param msg <object>
+         */
         callOnEnter : function( session, transition, msg ) {
             if ( this.onTimer ) {
                 session.addProperty(
@@ -361,6 +560,14 @@ var module= module || {};
             session.callMethod( this.onEnter, this, transition, msg );
         },
 
+        /**
+         * Execute the procedure on exiting this State.
+         * It may seem to reset a timer, and calling the optional onEnter callback function.
+         *
+         * @param session <FSM.Session>
+         * @param transition <FSM.Transition>
+         * @param msg <object>
+         */
         callOnExit : function( session, transition, msg ) {
             if( this.onTimer ) {
                 fsmContext.removeTimerTask( session.getProperty( this.__getTimerKey() ) );
@@ -372,6 +579,9 @@ var module= module || {};
 
     /**
      * FSM
+     * FSM defines a complete finite state machine.
+     * A FSM.FSM object extends a FSM.State object, so polymorphically a complete FSM is an State. This way, we can
+     * supply with sub-states to Automata's engine.
      *
      * @constructor
      *
@@ -392,6 +602,11 @@ var module= module || {};
         initialTransition       : null,
         initialState            : null,
 
+        /**
+         * Initialize a Finite State Machine.
+         *
+         * @param initialState <FSM.State>
+         */
         initialize : function( initialState ) {
 
             var me= this;
@@ -410,6 +625,9 @@ var module= module || {};
             });
         },
 
+        /**
+         * Build a Session for this FSM object.
+         */
         createSession : function() {
 
             if ( !this.sessionObjectFactory ) {
@@ -429,6 +647,9 @@ var module= module || {};
 
     /**
      * SessionContext
+     * A session context is just a holder for a current state across the different nesting levels of a given FSM.
+     * This class is some sugar to deal with an State.
+     * A FSM.Session is an stack of different contexts.
      *
      * @constructor
      */
@@ -442,22 +663,44 @@ var module= module || {};
 
         currentState    : null,
 
+        /**
+         * Set this context current state.
+         * This method will be called by Automata's engine when a state change is fired.
+         * @param s <FSM.State>
+         */
         setCurrentState : function( s ) {
             this.currentState= s;
         },
 
+        /**
+         * Get this context's current state.
+         * @return <FSM.State>
+         */
         getState : function() {
             return this.currentState;
         },
 
+        /**
+         * Get an exiting transition defined by this message for the current State.
+         * @param msg
+         */
         getTransitionFor : function( msg ) {
             return this.currentState.getTransitionFor( msg );
         },
 
+        /**
+         * Call this current State onExit callback function.
+         * @param session <FSM.Session>
+         * @param transition <FSM.Transition>
+         * @param msg <object>
+         */
         exit : function( session, transition, msg) {
             this.currentState.callOnExit(session, transition, msg);
         },
 
+        /**
+         * Print this context current state info.
+         */
         printStackTrace : function() {
             root.console.log("  "+this.currentState.name);
         }
@@ -467,6 +710,9 @@ var module= module || {};
 
     /**
      * FSM.Session
+     * A Session is the real artifact to deal with in Automata engine.
+     * A session must be created and will the core object to send messages to. Automata framework will take care
+     * of choreograph the calls, context push/pop, session observer notification, etc.
      *
      * @constructor
      */
@@ -492,6 +738,12 @@ var module= module || {};
 
         logic               : null,
 
+        /**
+         * Never call this method directly.
+         * For a given Automata event triggering (state.onEnter, state.onExit, transition.onPre/PostGuard,
+         * transition.onTransition), this method makes the appropriate call, either to the logic object, or to
+         * the supplied callback function instead.
+         */
         callMethod : function( /* method, argument1, ... */ ) {
             var args= Array.prototype.slice.call( arguments );
             var method= args.shift();
@@ -509,10 +761,18 @@ var module= module || {};
             }
         },
 
+        /**
+         * Add an observer to this session.
+         * @param sl <FSM.SessionListener>
+         */
         addListener : function( sl ) {
             this.sessionListener.push( sl );
         },
 
+        /**
+         * Remove an observer from this session.
+         * @param sl <FSM.SessionListener>
+         */
         removeListener : function( sl ) {
             var pos= this.sessionListener.indexOf( sl );
             if ( -1!==pos ) {
@@ -520,6 +780,12 @@ var module= module || {};
             }
         },
 
+        /**
+         * Push and set up a new FSM.Context level.
+         * @param state <FSM.State>
+         *
+         * @private
+         */
         push : function( state ) {
             var sc= new FSM.SessionContext( state );
 
@@ -528,6 +794,13 @@ var module= module || {};
             this.fireStateChanged( sc, state, __InitialTransitionId );
         },
 
+        /**
+         * Pop and reset the last FSM.Context object level.
+         * @param transition <FSM.Transition> the firing transition
+         * @param msg <object> the message that triggered the transition
+         *
+         * @private
+         */
         pop : function( transition, msg ) {
             var sc= this.sessionContextList.pop();
             sc.exit( this, transition, msg );
@@ -539,10 +812,18 @@ var module= module || {};
             }
         },
 
+        /**
+         * Asynchronously consume a message.
+         * @param msg <object>
+         */
         dispatch : function( msg ) {
             setTimeout( this.processMessage.bind( this, msg ), 0 );
         },
 
+        /**
+         * Synchronoulsy consume a message.
+         * @param msg <object>
+         */
         processMessage : function( msg ) {
             if ( this.transitioning ) {
                 throw "Processing message during transition";
@@ -606,10 +887,16 @@ var module= module || {};
             this.transitioning= false;
         },
 
+        /**
+         * Get the current execution context.
+         */
         getCurrentSessionContext : function() {
             return this.sessionContextList[ this.sessionContextList.length-1 ];
         },
 
+        /**
+         * Get current's context state.
+         */
         getCurrentState : function() {
             try {
                 return this.getCurrentSessionContext().getState();
@@ -618,6 +905,9 @@ var module= module || {};
             }
         },
 
+        /**
+         * Print information about the context stack state.
+         */
         printStackTrace : function() {
             if ( this.sessionContextList.length===0 ) {
                 root.console.log("session empty");
@@ -629,10 +919,19 @@ var module= module || {};
             }
         },
 
+        /**
+         * Add a property. Used as a holder for onTimer information.
+         * @param key <string>
+         * @param value <object>
+         */
         addProperty : function( key, value ) {
             this.properties[key]= value;
         },
 
+        /**
+         * Remove a property.
+         * @param key <string>
+         */
         removeProperty : function( key ) {
             this.properties.delete( key );
         },
@@ -692,6 +991,7 @@ var module= module || {};
 
     /**
      * SessionListener
+     * A template object to set a session object observer.
      *
      * @constructor
      */
@@ -707,9 +1007,16 @@ var module= module || {};
         customEvent         : function( obj ) {}
     };
 
-
+    /**
+     * Create and initalize a fsmContext object.
+     * This is the initial source of interaction with Automata engine.
+     */
     fsmContext= new FSM.FSMContext().initialize();
 
+    /**
+     * Register a FSM in Automata engine.
+     * @param fsmd <object> A FSM object definition.
+     */
     function registerFSM( fsmd ) {
         var fsm= new FSM.FSM( fsmd.logic );
 
@@ -794,6 +1101,10 @@ var module= module || {};
         fsmContext.registerFSM( fsm.name, fsm );
     }
 
+    /**
+     * Create a given FSM session.
+     * @param fsm <string> a FSM registered name.
+     */
     function createSession( fsm ) {
         return fsmContext.createSession( fsm );
     }

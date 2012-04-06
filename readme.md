@@ -17,7 +17,7 @@ finite state machine framework like
 
 ##How to
 
-Automata is valid to be used directly as a node js module. Exposes an object with two functions:
+Automata is valid to be used directly as a node js module or directly on browsers. Exposes an object with two functions:
 
 ```javascript
 module.exports= {
@@ -329,8 +329,10 @@ By calling
 session.dispatch( {msgId : "T_SS_S3" } );
 ```
 
-on the session at state SS1, SS1 will be removed from the stack, and the session will transize to S3 state.
-Additionally, this session will be finished since S3 is a final State (this nesting level will be removed from the stack too), and ROOT is also a final state, causing the session to be emptied.
+on the session at state SS1, SS1 will be removed from the stack (since SS2 is a final state), and the session will
+transize to S3 state.
+Additionally, this session will be finished since S3 is a final State (this nesting level will be removed from the stack too),
+and so it is ROOT, which causes the session to be emptied.
 
 
 ##FSM listeners
