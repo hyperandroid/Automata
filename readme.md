@@ -88,7 +88,7 @@ These methods accept as a valid message any object which contains a field called
 
 ##Logic object
 
-The FSM logic and state is ketp apart on a custom object the developer supplies to the FSM via the logic value.
+The FSM logic and state is ketp apart on a custom object the developer supplies to the FSM via the **logic** value.
 This must be a constructor function and will create a new object per session.
 Methods on this object can be automatically invoked by the framework by assigning them to the activity hook values
 available on State and Transition objects.
@@ -105,11 +105,13 @@ In either case, the calling **this** scope will be the logic object itself.
 Automata offers many activy hooks on its activity. The following hooks are available:
 
 State:
+
   * **onEnter**. Code fired on state enter.
   * **onExit**. Code fired on state exit.
 
 
 Transition:
+
   * **onTransition**. Code fired when the transition fires.
   * **onPreGuard**. Code fired on transition fire but previously to onTransition. It can veto transition fire.
   * **onPostGuard**. Code fired after onTransition execution. Could veto transition fire by issuing an auto-transition.
