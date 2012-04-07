@@ -614,6 +614,7 @@ var Logic= function() {
     };
 
     this.pre_guard_tr_bc= function() {
+        this.count++;
         console.log("count= "+this.count);
         if ( this.count<3 ) {
             throw "PreGuard_tr_BC";
@@ -623,6 +624,7 @@ var Logic= function() {
     };
 
     this.post_guard_tr_bc= function() {
+        this.count++;
         console.log("count= "+this.count);
         if ( this.count<5 ) {
             throw "PostGuard_tr_BC";
