@@ -16,7 +16,13 @@ finite state machine framework like
 
 ##How to
 
-Automata is valid to be used directly as a node js module or directly on browsers. Exposes an object with two functions:
+Automata is valid to be used directly as a node js module or directly on browsers.
+To get it:
+
+* npm install automata
+* include automata.js script file
+
+Automata exposes an object with two functions:
 
 ```javascript
 module.exports= {
