@@ -12,8 +12,7 @@ finite state machine framework like
 * Auto transition
 * Sub states
 * Guards
-* FSM Session
-*
+* FSM Session as message chroreography
 
 ##How to
 
@@ -86,6 +85,9 @@ These methods accept as a valid message any object which contains a field called
  any message object's msgId value must be the value defined in the **event** attribute present in the transition
  FSM definition block.
 
+A session accepts messages until it has reached a final State at its top level. From then and beyond, the session will
+toss exceptions if it has a message sent.
+
 ##Logic object
 
 The FSM logic and state is ketp apart on a custom object the developer supplies to the FSM via the **logic** value.
@@ -116,6 +118,12 @@ Transition:
   * **onTransition**. Code fired when the transition fires.
   * **onPreGuard**. Code fired on transition fire but previously to onTransition. It can veto transition fire.
   * **onPostGuard**. Code fired after onTransition execution. Could veto transition fire by issuing an auto-transition.
+
+A natural transition flow of executed actions for a transition from StateA to StateB will be:
+
+<code>
+StateA.onExit -> Transition.onTransition -> StateB.onEnter
+</code>
 
 Those hooks are defined in the **FSM JSON** definition as in the example:
 
@@ -208,6 +216,25 @@ The difference is straight:
    machine, nor its observers.
  * The **post-transition guard**, if fired, maked the transition behave as a self-transition trigger, and the following
    action sequence will be fired: Exit_State_A, Transition Fire, Enter_State_A.
+
+A natural transition flow of executed actions for a transition from StateA to StateB with preGuard and postGuard actions
+will be:
+
+<code>
+if preGuard throws exception
+    // nothing will happen
+    nil;
+else
+    if postGuard throws exception
+        // auto-transition. State change to StateA will be notified to observers.
+        StateA.onExit -> transition.onTransition -> StateA.onEnter
+    else
+        // this is the regular execution path for a non-guarded transition. State change to
+        // StateB will be notified to observers.
+        StateA.onExit -> Transition.onTransition -> StateB.onEnter
+    endif
+endif
+</code>
 
  The way to instrument the engine that a guard veto has been launched, will be by throwing an exception from the
  pre/post-transition functions. Those functions are optional, and must be set in the "transition" block of the
@@ -546,4 +573,306 @@ after 4 seconds from session1.
 
 ## Sample 3 - Guards
 
+This sample shows how transition guards work on Automata. To fire a transition, first of all an optional **pre-guard**
+function is tested. If this function throws an exception, Automata interprets a veto on this transition fire. During
+pre-guard stage, a veto means transition disposal, so no auto-transition is performed. This is useful for example, in
+a multiplayer game where while playing, a user abbadons the game and the game can continue playing. So instead of
+transitioning from State-playing to State-EndGame, a guard can decide to veto the transition.
+
+By definition, a guard **should not** modify the model, in this case, a Logic object.
+
+In the example, the guard will fail two times until the count reaches 3.
+At this moment, the transition is fired (its onTransition method is executed if exists), and after that,
+the **post-guard** condition is checked. PostGuard semantics are completely different.
+After firing the transition, the postGuard is checked. If this function **throws an exception** the transition
+turns into auto-transition, that means firing state change to current-state, and entering again current state.
+If not, the transition continues its natural flow and transition's next state is set as current state.
+
+```javascript
+
+context= module.exports;
+
+var Logic= function() {
+
+    this.count= 0;
+
+    this.enter_b= function() {
+        console.log("enter b");
+        this.count++;
+    }
+
+    this.enter= function( session, state, transition, msg ) {
+        console.log("enter "+state.toString());
+    };
+
+    this.exit= function( session, state, transition, msg ) {
+        console.log("exit "+state.toString());
+    };
+
+    this.action= function( session, state, transition, msg ) {
+        console.log("transition: "+transition.toString());
+    };
+
+    this.pre_guard_tr_bc= function() {
+        console.log("count= "+this.count);
+        if ( this.count<3 ) {
+            throw "PreGuard_tr_BC";
+        } else {
+            console.log("Ok, go.");
+        }
+    };
+
+    this.post_guard_tr_bc= function() {
+        console.log("count= "+this.count);
+        if ( this.count<5 ) {
+            throw "PostGuard_tr_BC";
+        }
+    };
+
+    return this;
+};
+
+context.registerFSM( {
+
+    name    : "Test3",
+    logic   : Logic,
+
+    state  : [
+        {
+            name    : "a",
+            initial : true,
+            onEnter : "enter",
+            onExit  : "exit"
+        },
+        {
+            name    : "b",
+            onEnter : "enter_b",
+            onExit  : "exit"
+        },
+        {
+            name    : "c",
+            onEnter : "enter",
+            onExit  : "exit"
+        },
+        {
+            name    : "d",
+            onEnter : "enter",
+            onExit  : "exit"
+        },
+    ],
+
+    transition : [
+        {
+            event       : "ab",
+            from        : "a",
+            to          : "b",
+            onTransition: "action"
+        },
+        {
+            event   : "bc",
+            from    : "b",
+            to      : "c",
+            onTransition: "action",
+            onPreGuard  : "pre_guard_tr_bc",
+            onPostGuard : "post_guard_tr_bc"
+        },
+        {
+            event   : "cd",
+            from    : "b",
+            to      : "c",
+            onTransition: "action"
+        }
+    ]
+} );
+
+var session= context.createSession("Test3");
+
+session.addListener( {
+    contextCreated      : function( obj ) {    },
+    contextDestroyed    : function( obj ) {    },
+    finalStateReached   : function( obj ) {
+        console.log("SessionListener finalStateReached");
+    },
+    stateChanged        : function( obj ) {
+        console.log("SessionListener stateChanged");
+    },
+    customEvent         : function( obj ) {    }
+} );
+
+console.log("");
+console.log("Sent 'ab'");
+session.processMessage( { msgId: "ab" } );
+
+// fail on pre-guard. count=1, but no notification of state change sent.
+console.log("");
+console.log("Sent 'bc'");
+session.processMessage( { msgId: "bc" } );
+
+// fail on pre-guard. count=2, but no notification of state change sent.
+console.log("");
+console.log("Sent 'bc'");
+session.processMessage( { msgId: "bc" } );
+
+// on pre-guard. count=3.
+// Ok go transition.
+// Fail on post-guard
+// so onExit State-b and onEnter State-b ( auto-transition ). Vetoed transition from State-b to State-c.
+// notification of 'stateChanged' on the observer.
+console.log("");
+console.log("Sent 'bc'");
+session.processMessage( { msgId: "bc" } );
+
+console.log("");
+console.log("Sent 'bc'");
+session.processMessage( { msgId: "bc" } );
+
+```
+
+
 ## Sample 4 - SubStates
+
+Sub States is an Automata feature which allows to nest different registered FSM as states of other FSM.
+The mechanism is straightforward, just define a **substate** block in an FSM **state** definition block.
+Automata will handle automatically all the nesting procedure, call the FSM action hooks and set the system's new
+current state.
+
+A substate, or a FSM does not define neither onEnter nor onExit function callbacks.
+
+It is done as follows:
+
+```javascript
+
+var context= module.exports;
+
+var Logic= function() {
+
+    this.enter= function( session, state, transition, msg ) {
+        console.log("Enter "+state.toString());
+    };
+
+    this.exit= function( session, state, transition, msg ) {
+        console.log("Exit "+state.toString());
+    };
+
+    this.transition= function(session, state, transition, msg ) {
+        console.log("transition "+transition.toString());
+    };
+
+    return this;
+};
+
+// Register one FSM model.
+context.registerFSM( {
+    name    : "SubStateTest",
+
+    // in a sub state FSM a Logic object constructor function is optional
+
+    state  : [
+        {
+            name    : "1",
+            initial : true,
+            onEnter : "enter",
+            onExit  : "exit"
+        },
+        {
+            name    : "2",
+            onEnter : "enter",
+            onExit  : "exit"
+        },
+        {
+            name    : "3",
+            onEnter : "enter",
+            onExit  : "exit"
+        }
+    ],
+
+    transition : [
+        {
+            event       : "12",
+            from        : "1",
+            to          : "2"
+        },
+        {
+            event       : "23",
+            from        : "2",
+            to          : "3"
+        }
+    ]
+} );
+
+// register another FSM model
+
+context.registerFSM( {
+
+    name    : "Test4",
+    logic   : Logic,
+
+    state  : [
+        {
+            name    : "a",
+            initial : true,
+            onEnter : "enter",
+            onExit  : "exit"
+        },
+        {
+            name    : "b",
+            onEnter : "enter",
+            onExit  : "exit"
+        },
+        {
+            subState: "SubStateTest"
+        },
+        {
+            name    : "c",
+            onEnter : "enter",
+            onExit  : "exit"
+        }
+    ],
+
+    transition : [
+        {
+            event       : "ab",
+            from        : "a",
+            to          : "b",
+            onTransition: "transition"
+        },
+        {
+            event   : "bc",
+            from    : "b",
+            to      : "SubStateTest",
+            onTransition: "transition"
+        },
+        {
+            event   : "cd",
+            from    : "SubStateTest",
+            to      : "c",
+            onTransition: "transition"
+        }
+    ]
+} );
+
+var session= context.createSession("Test4");
+session.processMessage( { msgId : "ab" } );
+session.processMessage( { msgId : "bc" } );
+
+// The session is now in State-1 on STest FSM.
+session.printStackTrace();
+
+// The stack trace is:
+//   Test4
+//   SubStateTest
+//   1
+
+session.processMessage( { msgId : "cd" } );
+
+// Although neither State-1 on SubStateTest, nor SubStateTest have a transition to "cd", Automata's engine traverses
+// current Session's stack trace upwards trying to find a suitable State with an exit transition to "cd". In this case,
+// SubStateTest itself consumes the transition, meaning the last Session's context will be poped out and the control flow
+// will be transitioning from SubStateTest to State-c.
+
+// After that call, the session will be empty, since State-c is final, and every context is poped out the session.
+session.printStackTrace();
+
+// prints: session empty.
+
+```

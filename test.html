@@ -65,7 +65,10 @@ var Logic= function() {
 
 context.registerFSM( {
     name    : "STest",
-
+Logic : function() {
+    console.log("constructor");
+    return this;
+},
     state  : [
         {
             name    : "1",
@@ -156,15 +159,7 @@ context.registerFSM( {
             from    : "STest",
             to      : "c"
         }
-    ],
-
-    onEnter : function() {
-
-    },
-
-    onExit : function() {
-
-    }
+    ]
 });
 
 var session= context.createSession("Test");
