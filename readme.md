@@ -12,7 +12,7 @@ finite state machine framework like
 * Auto transition
 * Sub states
 * Guards
-* FSM Session as message chroreography
+* FSM Session as message chroreographer
 
 ##How to
 
