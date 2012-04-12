@@ -31,7 +31,8 @@ module.exports= {
 }
 ```
 
-First of all, one or more FSM must be registered in the system. A minimal state machine could be:
+First of all, one or more FSM must be registered in the system. One State must be labeled as initial,
+which will be the entry point. A minimal state machine could be:
 
 ```javascript
 fsmContext.registerFSM( {
@@ -113,7 +114,7 @@ In either case, the calling **this** scope will be the logic object itself.
 
 Automata offers many activy hooks on its activity. The following hooks are available:
 
-State:
+State and FSM:
 
   * **onEnter**. Code fired on state enter.
   * **onExit**. Code fired on state exit.

@@ -71,7 +71,15 @@ context.registerFSM( {
             to      : "c",
             onTransition: "action"
         }
-    ]
+    ],
+
+    onEnter : function( session, state, transition, msg ) {
+        console.log(" --> FSM enter");
+    },
+
+    onExit : function( session, state, transition, msg ) {
+        console.log(" --> FSM exit");
+    }
 } );
 
 var session= context.createSession("Test1");

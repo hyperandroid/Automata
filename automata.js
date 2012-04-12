@@ -8,9 +8,9 @@
 /**
  * requireJS available ???
  */
-var module= module || {};
+var module = module || {};
 
-(function(root) {
+(function (root) {
 
 
     /**
@@ -21,6 +21,7 @@ var module= module || {};
      */
     function extend(subc, superc) {
         var subcp = subc.prototype;
+        var method;
 
         // Class pattern.
         var F = function() {
@@ -38,7 +39,7 @@ var module= module || {};
 
         // los metodos de superc, que no esten en esta clase, crear un metodo que
         // llama al metodo de superc.
-        for (var method in subcp) {
+        for ( method in subcp ) {
             if (subcp.hasOwnProperty(method)) {
                 subc.prototype[method] = subcp[method];
             }
@@ -48,7 +49,7 @@ var module= module || {};
     /**
      * Bind mechanism. Honors already existing bind functions.
      */
-    Function.prototype.bind= Function.prototype.bind || function( /* this */ ) {
+    Function.prototype.bind = Function.prototype.bind || function( /* this */ ) {
 
         var fn=     this;                                   // the function
         var args=   Array.prototype.slice.call(arguments);  // copy the arguments.
@@ -619,7 +620,7 @@ var module= module || {};
 
             var me= this;
 
-            this.setOnEnter( function( session, state, transition, msg ) {
+            FSM.FSM.superclass.setOnEnter.call( this, function( session, state, transition, msg ) {
                 me.initialTransition.fireTransition( {
                         msgId : __InitialTransitionId
                     },
@@ -633,8 +634,31 @@ var module= module || {};
             });
         },
 
+        setOnEnter : function( m ) {
+            this._onEnter= m;
+            return this;
+        },
+
+        callOnEnter : function( session, transition, msg ) {
+            session.callMethod( this._onEnter, session, transition, msg );
+            FSM.FSM.superclass.callOnEnter.call( this, session, transition, msg );
+        },
+
         /**
          * Build a Session for this FSM object.
+         * A session is (of course) initially empty.
+         * This method is called only once, and from this on, sub-state automata go on with the normal lifecycle
+         * calling their custom onEnter method which launcher the initialTransition.
+         * Strictly talking, automata object should be constructed from a building block where just an FSM defined
+         * just one state being a substate of the target FSM.
+         *
+         * To avoid such automata definition inefficiencies, here I'm calling the block manually:
+         *   + pushing a top level FSM context
+         *   + calling its onEnter method as if an initialTransition was fired.
+         *
+         * I'm not happy with the semantics of manually calling a (supposed to be) initial transition. Will keep it
+         * this way for the sake of simplicity, but will probably change this semantics in the future,
+         * (by adding an Automata with just one substate) which could cause backward incompatibilities.
          */
         createSession : function() {
 
@@ -644,7 +668,7 @@ var module= module || {};
 
             var session= new FSM.Session( new this.sessionObjectFactory() );
             session.push( this );
-            this.initialTransition.fireTransition( __InitialTransitionId, session );
+            this.callOnEnter( session, null, null );
 
             return session;
         }
@@ -1105,6 +1129,14 @@ var module= module || {};
             if ( transition_def.onPostGuard ) {
                 transition.setOnPostGuard( transition_def.onPostGuard );
             }
+        }
+
+        if ( fsmd.onExit ) {
+            fsm.setOnExit( fsmd.onExit );
+        }
+
+        if ( fsmd.onEnter ) {
+            fsm.setOnEnter( fsmd.onEnter );
         }
 
         fsm.initialize( initial_state );

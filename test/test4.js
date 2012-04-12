@@ -70,7 +70,16 @@ context.registerFSM( {
             from        : "2",
             to          : "3"
         }
-    ]
+    ],
+
+    onExit : function() {
+        console.log("  --> Exit sub-automata SubStateTest");
+    },
+
+    onEnter : function() {
+        console.log("  --> Enter sub-automata SubStateTest");
+    }
+
 } );
 
 // register another FSM model
@@ -121,7 +130,16 @@ context.registerFSM( {
             to      : "c",
             onTransition: "transition"
         }
-    ]
+    ],
+
+    onExit : function() {
+        console.log("  --> Exit automata Test4");
+    },
+
+    onEnter : function() {
+        console.log("  --> Enter automata Test4");
+    }
+
 } );
 
 var session= context.createSession("Test4");
