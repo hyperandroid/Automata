@@ -1,0 +1,5 @@
+04-15-2012 *1.0.4*
+------------------
+
+* published module 1.0.4
+* added onEnter/onExit on subState.
