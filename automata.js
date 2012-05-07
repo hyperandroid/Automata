@@ -469,6 +469,9 @@ var module = module || {};
         };
         this.name= name || ( "state"+__StateIndex++ );
 
+        this.onEnter= this.name+"_enter";
+        this.onExit=  this.name+"_exit";
+
         return this;
     };
 
@@ -595,11 +598,14 @@ var module = module || {};
      * @constructor
      *
      */
-    FSM.FSM= function( sessionObjectFactory ) {
+    FSM.FSM= function( sessionObjectFactory, name ) {
 
-        FSM.FSM.superclass.constructor.call(this);
+        FSM.FSM.superclass.constructor.call(this, name);
 
         this.sessionObjectFactory= sessionObjectFactory;
+
+        this._onEnter= this.name+"_enter";
+
 
         return this;
     };
@@ -640,7 +646,7 @@ var module = module || {};
         },
 
         callOnEnter : function( session, transition, msg ) {
-            session.callMethod( this._onEnter, session, transition, msg );
+            session.callMethod( this._onEnter, this, transition, msg );
             FSM.FSM.superclass.callOnEnter.call( this, session, transition, msg );
         },
 
@@ -1052,9 +1058,7 @@ var module = module || {};
      * @param fsmd <object> A FSM object definition.
      */
     function registerFSM( fsmd ) {
-        var fsm= new FSM.FSM( fsmd.logic );
-
-        fsm.name= fsmd.name || fsm.name;
+        var fsm= new FSM.FSM( fsmd.logic, fsmd.name );
 
         var i;
         var states_a= fsmd.state;
@@ -1079,10 +1083,14 @@ var module = module || {};
 
                 if ( state_def.onEnter ) {
                     state.setOnEnter( state_def.onEnter );
+                } else {
+                    state.setOnEnter( state_def.name+"_enter" );
                 }
 
                 if ( state_def.onExit ) {
                     state.setOnExit( state_def.onExit );
+                } else {
+                    state.setOnExit( state_def.name+"_exit" );
                 }
 
                 if ( state_def.onTimer ) {
@@ -1122,13 +1130,22 @@ var module = module || {};
 
             if ( transition_def.onTransition ) {
                 transition.setOnTransition( transition_def.onTransition );
+            } else {
+                transition.setOnTransition( transition_def.event+"_transition" );
             }
+
             if ( transition_def.onPreGuard ) {
                 transition.setOnPreGuard( transition_def.onPreGuard );
+            } else {
+                transition.setOnPreGuard( transition_def.event+"_preGuard" );
             }
+
             if ( transition_def.onPostGuard ) {
                 transition.setOnPostGuard( transition_def.onPostGuard );
+            } else {
+                transition.setOnPostGuard( transition_def.event+"_postGuard" );
             }
+
         }
 
         if ( fsmd.onExit ) {

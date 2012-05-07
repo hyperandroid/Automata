@@ -1,3 +1,18 @@
+05-07-2012 *1.0.5*
+------------------
+
+* added convention state enter/exit, transition action/preGuard/postGuard as follows:
+
+  state/fsm enter action:   state.name+"_enter"
+  state/fsm exit action:    state.name+"_exit"
+
+  transition action:        transition.event+"_transition"
+  transition preGuard:      transition.event+"_preGuard"
+  transition postGuard:     transition.event+"_postGuard"
+
+* Top level FSM now have correct name. The one they're registered with.
+* Fixed a bug that didn't passed properly the state on FSM enter to callbacks.
+
 04-15-2012 *1.0.4*
 ------------------
 

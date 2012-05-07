@@ -17,16 +17,40 @@ context= require("automata");
 
 var Logic= function() {
 
-    this.enter= function( session, state, transition, msg ) {
-        console.log("enter "+state.toString());
+    this.a_enter= function( session, state, transition, msg ) {
+        console.log("a enter "+state.toString());
     };
 
-    this.exit= function( session, state, transition, msg ) {
-        console.log("exit "+state.toString());
+    this.a_exit= function( session, state, transition, msg ) {
+        console.log("a exit "+state.toString());
     };
 
-    this.action= function( session, state, transition, msg ) {
+    this.b_enter= function( session, state, transition, msg ) {
+        console.log("b enter "+state.toString());
+    };
+
+    this.b_exit= function( session, state, transition, msg ) {
+        console.log("b exit "+state.toString());
+    };
+
+    this.c_exit= function( session, state, transition, msg ) {
+        console.log("c exit "+state.toString());
+    };
+
+    this.ab_transition= function( session, state, transition, msg ) {
         console.log("transition: "+transition.toString());
+    };
+
+    this.bc_transition= function( session, state, transition, msg ) {
+        console.log("transition: "+transition.toString());
+    };
+
+    this.Test1_enter= function( session, state, transition, msg ) {
+        console.log("test1 enter "+state.toString());
+    };
+
+    this.Test1_exit= function( session, state, transition, msg ) {
+        console.log("test1 exit "+state.toString());
     };
 };
 
@@ -38,22 +62,15 @@ context.registerFSM( {
     state  : [
         {
             name    : "a",
-            initial : true,
-            onEnter : "enter",
-            onExit  : "exit"
+            initial : true
         },
         {
-            name    : "b",
-            onEnter : "enter",
-            onExit  : "exit"
+            name    : "b"
         },
         {
             name    : "c",
             onEnter : function( session, state, transition, msg ) {
                 console.log("Enter c");
-            },
-            onExit  : function( session, state, transition, msg ) {
-                console.log("Exit c");
             }
         }
     ],
@@ -62,28 +79,17 @@ context.registerFSM( {
         {
             event       : "ab",
             from        : "a",
-            to          : "b",
-            onTransition: "action"
+            to          : "b"
         },
         {
             event   : "bc",
             from    : "b",
-            to      : "c",
-            onTransition: "action"
+            to      : "c"
         }
     ],
-
-    onEnter : function( session, state, transition, msg ) {
-        console.log(" --> FSM enter");
-    },
-
-    onExit : function( session, state, transition, msg ) {
-        console.log(" --> FSM exit");
-    }
 } );
 
 var session= context.createSession("Test1");
 session.dispatch( { msgId: "ab" } );
+session.dispatch( { msgId: "bc" } );
 
-var session2= context.createSession("Test1");
-session2.dispatch( { msgId: "ab" } );
