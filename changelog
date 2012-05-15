@@ -1,3 +1,11 @@
+05-15-2010 *1.0.6*
+------------------
+
+* Fixed some bugs.
+* Session logic object receives the FSM.Session as constructor parameter.
+* FSMSession object's processMessage function throws an exception if no suitable transition for the current state is
+  found. It will silently fail if dispatch method is called.
+
 05-07-2012 *1.0.5*
 ------------------
 

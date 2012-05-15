@@ -548,7 +548,7 @@ var module = module || {};
          * @private
          */
         __getTimerKey : function( ) {
-            return this.name + "#" + this.onTimer.event;
+            return this.name; // + "#" + this.onTimer.event.msgId;
         },
 
         /**
@@ -578,7 +578,9 @@ var module = module || {};
          */
         callOnExit : function( session, transition, msg ) {
             if( this.onTimer ) {
-                fsmContext.removeTimerTask( session.getProperty( this.__getTimerKey() ) );
+                var pr= session.getProperty( this.__getTimerKey() );
+                fsmContext.removeTimerTask( pr );
+                session.removeProperty(pr);
             }
             session.callMethod( this.onExit, this, transition, msg );
         },
@@ -672,7 +674,9 @@ var module = module || {};
                 return null;
             }
 
-            var session= new FSM.Session( new this.sessionObjectFactory() );
+            var session= new FSM.Session( );
+            var logic= new this.sessionObjectFactory(session);
+            session.setLogic( logic );
             session.push( this );
             this.callOnEnter( session, null, null );
 
@@ -754,13 +758,11 @@ var module = module || {};
      *
      * @constructor
      */
-    FSM.Session= function( logic ) {
+    FSM.Session= function( ) {
 
         this.sessionContextList=    [];
         this.sessionListener=       [];
         this.properties=            {};
-
-        this.logic=                 logic;
 
         return this;
     };
@@ -775,6 +777,10 @@ var module = module || {};
         transitioning       : false,
 
         logic               : null,
+
+        setLogic : function( logic ) {
+            this.logic= logic;
+        },
 
         /**
          * Never call this method directly.
@@ -857,7 +863,14 @@ var module = module || {};
          * @param msg <object>
          */
         dispatch : function( msg ) {
-            setTimeout( this.processMessage.bind( this, msg ), 0 );
+            var me= this;
+            setTimeout( function() {
+                try {
+                    me.processMessage( msg );
+                } catch(e) {
+                    throw e;
+                };
+            }, 0 );
         },
 
         /**
@@ -884,8 +897,8 @@ var module = module || {};
                 }
             }
 
-            if ( null===firingTransition ) {
-                throw "No transition on state "+this.getCurrentState().getName()+" for message "+msg.msgId;
+            if ( !firingTransition ) {
+                throw "No transition on state "+this.getCurrentState().name+" for message "+msg.msgId;
             }
 
             // check guard pre condition.
@@ -973,7 +986,7 @@ var module = module || {};
          * @param key <string>
          */
         removeProperty : function( key ) {
-            this.properties.delete( key );
+            delete this.properties[ key ];
         },
 
         getProperty : function( key ) {
