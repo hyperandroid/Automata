@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/hyperandroid/Automata.png)](http://travis-ci.org/hyperandroid/Automata)
 #Automata - A finite state machine framework.
 
 ##Description
