@@ -97,8 +97,8 @@ toss exceptions if it has a message sent.
 
 ##Logic object
 
-The FSM logic and state is ketp apart on a custom object the developer supplies to the FSM via the **logic** value.
-This must be a constructor function and will create a new object per session.
+The FSM logic and state are isolated. The developer supplies a custom object to the FSM via the **logic** value.
+This must be a constructor function and will create a new object per **session**.
 Methods on this object can be automatically invoked by the framework by assigning them to the activity hook values
 available on State and Transition objects.
 The hooks points can be either an string, identifying a logic object function or a callback function. In either case, the
@@ -129,7 +129,7 @@ Transition:
 A natural transition flow of executed actions for a transition from StateA to StateB will be:
 
 <code>
-StateA.onExit -> Transition.onTransition -> StateB.onEnter
+StateA.onExit() -> Transition.onTransition() -> StateB.onEnter()
 </code>
 
 Those hooks are defined in the **FSM JSON** definition as in the example:
@@ -207,6 +207,21 @@ function constructor_func() {
  //  Transition fire code
  //  Enter state B
 ```
+
+Function hooks will be addressed in two ways:
+
+* **By convention**. The FSM engine will look for an unspecified method with the following rules:
+
+    state/fsm enter action:   state.name+"_enter"
+    state/fsm exit action:    state.name+"_exit"
+
+    transition action:        transition.event+"_transition"
+    transition preGuard:      transition.event+"_preGuard"
+    transition postGuard:     transition.event+"_postGuard"
+
+* **By configuration**. Defining onEnter, onExit or onTransition in the FSM JSON file.
+
+In any case, those functions will be automatically called if they exist in the logic object.
 
 ##Guards
 

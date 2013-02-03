@@ -86,7 +86,7 @@ context.registerFSM( {
             from    : "b",
             to      : "c"
         }
-    ],
+    ]
 } );
 
 var session= context.createSession("Test1");

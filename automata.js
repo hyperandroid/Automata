@@ -1184,9 +1184,23 @@ var module = module || {};
     /**
      * node module definition.
      */
-    module.exports= {
+    var _export= {
         registerFSM     : registerFSM,
         createSession   : createSession
     };
+
+
+    if (typeof define!=='undefined' && define.amd) {              // AMD / RequireJS
+        define('async', [], function () {
+            return _export;
+        });
+
+    } else if (typeof module!=='undefined' && module.exports) {     // Node.js
+        module.exports= _export;
+
+    } else {
+        root._u= _export;
+
+    }
 
 })( typeof window!=='undefined' ? window : global );
