@@ -246,17 +246,17 @@ var module = module || {};
         /**
          * Create a given FSM session.
          * @param fromFSM <string> a FSM name. Must be previously registered by calling registerFSM function.
-         *
+         * @param args <Array.*> an array of parameters passed from context.createSession()
          * @return <FSM.Session> an initialized session object.
          */
-        createSession : function( fromFSM ) {
+        createSession : function( fromFSM, args ) {
 
             var fsm= this.registry[ fromFSM ];
             if ( typeof fsm==="undefined" ) {
                 throw "FSM "+fromFSM+" does not exist.";
             }
 
-            return fsm.createSession();
+            return fsm.createSession(args);
         },
 
         /**
@@ -310,6 +310,10 @@ var module = module || {};
         this.event=         event;
         this.initialState=  initialState;
         this.finalState=    finalState;
+
+        this.onTransition= event+"_transition";
+        this.onPreGuard= event+"_pre_guard";
+        this.onPostGuard= event+"_post_guard";
 
         if ( this.initialState ) {
             this.initialState.addTransition(this);
@@ -668,14 +672,14 @@ var module = module || {};
          * this way for the sake of simplicity, but will probably change this semantics in the future,
          * (by adding an Automata with just one substate) which could cause backward incompatibilities.
          */
-        createSession : function() {
+        createSession : function(args) {
 
             if ( !this.sessionObjectFactory ) {
                 return null;
             }
 
             var session= new FSM.Session( );
-            var logic= new this.sessionObjectFactory(session);
+            var logic= new this.sessionObjectFactory(session, args);
             session.setLogic( logic );
             session.push( this );
             this.callOnEnter( session, null, null );
@@ -913,23 +917,27 @@ var module = module || {};
             try {
                 firingTransition.checkGuardPostCondition( msg, this );
 
-                for( var j= this.sessionContextList.length-1; j>i; j-- ) {
-                    this.pop( firingTransition, msg );
-                }
+                try {
+                    for( var j= this.sessionContextList.length-1; j>i; j-- ) {
+                        this.pop( firingTransition, msg );
+                    }
 
-                firingTransition.firePreTransition( msg, this );
+                    firingTransition.firePreTransition( msg, this );
 
-                    var newState= firingTransition.finalState;
-                    target.setCurrentState( newState );
-                    this.fireStateChanged( target, newState, msg );
+                        var newState= firingTransition.finalState;
+                        target.setCurrentState( newState );
+                        this.fireStateChanged( target, newState, msg );
 
-                firingTransition.firePostTransition( msg, this );
+                    firingTransition.firePostTransition( msg, this );
 
-                while(
-                    this.sessionContextList.length!==0 &&
-                    this.getCurrentSessionContext().getState().isFinalState() ) {
+                    while(
+                        this.sessionContextList.length!==0 &&
+                        this.getCurrentSessionContext().getState().isFinalState() ) {
 
-                    this.pop( null, msg );
+                        this.pop( null, msg );
+                    }
+                } catch( ex ) {
+                    console.error("An error ocurred: "+ ex.message, ex.stack);
                 }
             } catch( guardException ) {
                 firingTransition.firePreTransitionGuardedByPostCondition( msg, this );
@@ -1178,7 +1186,9 @@ var module = module || {};
      * @param fsm <string> a FSM registered name.
      */
     function createSession( fsm ) {
-        return fsmContext.createSession( fsm );
+        var args= Array.prototype.slice.call(arguments);
+        args.shift();
+        return fsmContext.createSession( fsm, args );
     }
 
     /**
@@ -1186,6 +1196,7 @@ var module = module || {};
      */
     var _export= {
         registerFSM     : registerFSM,
+        registerFDA     : registerFSM,
         createSession   : createSession
     };
 
@@ -1199,7 +1210,7 @@ var module = module || {};
         module.exports= _export;
 
     } else {
-        root._u= _export;
+        root.Automata= _export;
 
     }
 
