@@ -353,7 +353,7 @@ var module = module || {};
         },
 
         createThrowable : function( msg ) {
-            return new FSM.GuardException(msg);
+            throw new FSM.GuardException(msg);
         },
 
         /**
