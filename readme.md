@@ -226,7 +226,7 @@ In any case, those functions will be automatically called if they exist in the l
 ##Guards
 
 Guard prevent a transition from being fired. In Automata there're two available guard points out of the box.
-One on preTransitionFire and the otheron postTransitionFire.
+One on preTransitionFire and the other on postTransitionFire.
 The difference is straight:
 
  * The **pre-transition guard**, if fired, aborts the transition firing procedure as if it had never ocurred.
@@ -259,7 +259,9 @@ endif
 </code>
 
  The way to instrument the engine that a guard veto has been launched, will be by throwing an exception from the
- pre/post-transition functions. Those functions are optional, and must be set in the "transition" block of the
+ pre/post-transition functions. A Guard is expected to throw a GuardException object by calling
+  <code>transition.createThrowable</code> method.
+ Those functions are optional, and must be set in the "transition" block of the
  FSM definition as follows:
 
 ```javascript
@@ -281,6 +283,18 @@ endif
     ...
  }
 ```
+
+ If no onPreGuard/onPostGuard attributes are specified, Automata DFA engine will assume a call to a convention method
+ of the form:
+
+ ```
+ <event>_preGuard / <event>_postGuard.
+ ```
+
+ In this case:
+ * AB_preGuard
+ * AB_postGuard
+
 
 ##Timed transitions
 

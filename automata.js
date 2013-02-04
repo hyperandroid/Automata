@@ -298,6 +298,11 @@ var module = module || {};
         }
     };
 
+    FSM.GuardException= function(msg) {
+        this.msg= msg;
+        return this;
+    };
+
     /**
      * FSMTransition
      * An Automata framework transition.
@@ -312,8 +317,6 @@ var module = module || {};
         this.finalState=    finalState;
 
         this.onTransition= event+"_transition";
-        this.onPreGuard= event+"_pre_guard";
-        this.onPostGuard= event+"_post_guard";
 
         if ( this.initialState ) {
             this.initialState.addTransition(this);
@@ -347,6 +350,10 @@ var module = module || {};
         setOnPreGuard : function( m ) {
             this.onPreGuard= m;
             return this;
+        },
+
+        createThrowable : function( msg ) {
+            return new FSM.GuardException(msg);
         },
 
         /**
@@ -940,9 +947,13 @@ var module = module || {};
                     console.error("An error ocurred: "+ ex.message, ex.stack);
                 }
             } catch( guardException ) {
-                firingTransition.firePreTransitionGuardedByPostCondition( msg, this );
-                    this.fireStateChanged( target, firingTransition.initialState, msg );
-                firingTransition.firePostTransitionGuardedByPostCondition( msg, this );
+                if ( guardException instanceof FSM.GuardException ) {
+                    firingTransition.firePreTransitionGuardedByPostCondition( msg, this );
+                        this.fireStateChanged( target, firingTransition.initialState, msg );
+                    firingTransition.firePostTransitionGuardedByPostCondition( msg, this );
+                } else {
+                    console.error("An error ocurred: "+ guardException.message, guardException.stack);
+                }
             }
 
             this.transitioning= false;
