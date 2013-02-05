@@ -1,3 +1,10 @@
+04-02-2013 *1.0.7*
+------------------
+
+* Added GuardException as a mechanism to differentiate coding exceptions from GuardedExceptions.
+* Better runtime exception handling and report.
+* Added methods guardPreCondition and guardPostCondition to Session lifecycle.
+
 05-15-2010 *1.0.6*
 ------------------
 

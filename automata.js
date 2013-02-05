@@ -300,6 +300,11 @@ var module = module || {};
 
     FSM.GuardException= function(msg) {
         this.msg= msg;
+
+        this.toString= function() {
+            return this.msg;
+        }
+
         return this;
     };
 
@@ -916,7 +921,12 @@ var module = module || {};
             try {
                 firingTransition.checkGuardPreCondition( msg, this );
             } catch( e ) {
-                return; // fails on pre-guard. simply return.
+                if ( e instanceof FSM.GuardException ) {
+                    this.fireGuardPreCondition(firingTransition, msg, e);
+                    return; // fails on pre-guard. simply return.
+                } else {
+                    console.error("An error ocurred: "+ e.message, e.stack);
+                }
             }
 
             this.transitioning= true;
@@ -948,6 +958,7 @@ var module = module || {};
                 }
             } catch( guardException ) {
                 if ( guardException instanceof FSM.GuardException ) {
+                    this.fireGuardPostCondition(firingTransition, msg, guardException);
                     firingTransition.firePreTransitionGuardedByPostCondition( msg, this );
                         this.fireStateChanged( target, firingTransition.initialState, msg );
                     firingTransition.firePostTransitionGuardedByPostCondition( msg, this );
@@ -1051,6 +1062,28 @@ var module = module || {};
             }
         },
 
+        fireGuardPreCondition : function( firingTransition, msg, guardException ) {
+            for( var i=0; i<this.sessionListener.length; i++ ) {
+                this.sessionListener[i].guardPreCondition( {
+                    session     : this,
+                    transition  : firingTransition,
+                    message     : msg,
+                    exception   : guardException
+                });
+            }
+        },
+
+        fireGuardPostCondition : function( firingTransition, msg, guardException ) {
+            for( var i=0; i<this.sessionListener.length; i++ ) {
+                this.sessionListener[i].guardPostCondition( {
+                    session     : this,
+                    transition  : firingTransition,
+                    message     : msg,
+                    exception   : guardException
+                });
+            }
+        },
+
         fireCustomEvent : function( msg ) {
             for( var i=0; i<this.sessionListener.length; i++ ) {
                 this.sessionListener[i].customEvent( {
@@ -1076,7 +1109,9 @@ var module = module || {};
         contextDestroyed    : function( obj ) {},
         finalStateReached   : function( obj ) {},
         stateChanged        : function( obj ) {},
-        customEvent         : function( obj ) {}
+        customEvent         : function( obj ) {},
+        guardPreCondition   : function( obj ) {},
+        guardPostCondition  : function( obj ) {}
     };
 
     /**
