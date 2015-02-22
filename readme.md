@@ -128,9 +128,9 @@ Transition:
 
 A natural transition flow of executed actions for a transition from StateA to StateB will be:
 
-<code>
+```
 StateA.onExit() -> Transition.onTransition() -> StateB.onEnter()
-</code>
+```
 
 Those hooks are defined in the **FSM JSON** definition as in the example:
 
@@ -242,7 +242,7 @@ The difference is straight:
 A natural transition flow of executed actions for a transition from StateA to StateB with preGuard and postGuard actions
 will be:
 
-<code>
+```
 if preGuard throws exception
     // nothing will happen
     nil;
@@ -256,11 +256,11 @@ else
         StateA.onExit -> Transition.onTransition -> StateB.onEnter
     endif
 endif
-</code>
+```
 
  The way to instrument the engine that a guard veto has been launched, will be by throwing an exception from the
  pre/post-transition functions. A Guard is expected to throw a GuardException object by calling
-  <code>transition.createThrowable</code> method.
+  `transition.createThrowable`method.
  Those functions are optional, and must be set in the "transition" block of the
  FSM definition as follows:
 
