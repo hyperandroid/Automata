@@ -202,7 +202,7 @@ var module = module || {};
          */
         initialize : function() {
             if ( this.initialized ) {
-                throw "Automata already initialized.";
+                throw (new Error("Automata already initialized."));
             }
 
             this.timerId= root.setInterval( this.__checkTimers.bind(this), 200 );
@@ -227,7 +227,7 @@ var module = module || {};
          */
         registerFSM : function( name, fsm ) {
             if ( this.registry[name] ) {
-                throw "'"+name+"' FSM already registered.";
+                throw (new Error("'"+name+"' FSM already registered."));
             }
 
             this.registry[ name ]= fsm;
@@ -253,7 +253,7 @@ var module = module || {};
 
             var fsm= this.registry[ fromFSM ];
             if ( typeof fsm==="undefined" ) {
-                throw "FSM "+fromFSM+" does not exist.";
+                throw (new Error("FSM "+fromFSM+" does not exist."));
             }
 
             return fsm.createSession(args);
@@ -509,7 +509,7 @@ var module = module || {};
             var event= tr.getEvent();
 
             if ( this.exitTransitions[event] ) {
-                throw "Already set transition for event "+event;
+                throw (new Error("Already set transition for event "+event));
             }
 
             this.exitTransitions[event]= tr;
@@ -895,11 +895,11 @@ var module = module || {};
          */
         processMessage : function( msg ) {
             if ( this.transitioning ) {
-                throw "Processing message during transition";
+                throw (new Error("Processing message during transition"));
             }
 
             if ( this.sessionContextList.length===0 ) {
-                throw "Empty Session";
+                throw (new Error("Empty Session"));
             }
 
             var firingTransition= null; // FSM.Transition
@@ -914,7 +914,7 @@ var module = module || {};
             }
 
             if ( !firingTransition ) {
-                throw "No transition on state "+this.getCurrentState().name+" for message "+msg.msgId;
+                throw (new Error("No transition on state "+this.getCurrentState().name+" for message "+msg.msgId));
             }
 
             // check guard pre condition.
@@ -1143,7 +1143,7 @@ var module = module || {};
 
                 if ( state_def.initial ) {
                     if ( initial_state ) {
-                        throw "More than one initial state set.";
+                        throw (new Error("More than one initial state set."));
                     }
                     initial_state= state;
                 }
@@ -1169,7 +1169,7 @@ var module = module || {};
         }
 
         if ( null===initial_state ) {
-            throw "No initial state defined.";
+            throw (new Error("No initial state defined."));
         }
 
         var transitions_a= fsmd.transition;
@@ -1183,10 +1183,10 @@ var module = module || {};
             var to=     states[ sto ];
 
             if ( typeof from==="undefined" ) {
-                throw "Transition "+event+" no from state: "+sfrom;
+                throw (new Error("Transition "+event+" no from state: "+sfrom));
             }
             if ( typeof to==="undefined" ) {
-                throw "Transition "+event+" no to state: "+sto;
+                throw (new Error("Transition "+event+" no to state: "+sto));
             }
 
             var transition= new FSM.Transition(
