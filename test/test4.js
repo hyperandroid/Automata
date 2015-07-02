@@ -143,25 +143,28 @@ context.registerFSM( {
 } );
 
 var session= context.createSession("Test4");
-session.processMessage( { msgId : "ab" } );
-session.processMessage( { msgId : "bc" } );
+session.consume( { msgId : "ab" } );
+session.consume( { msgId : "bc" }, function() {
 
-// The session is now in State-1 on STest FSM.
-session.printStackTrace();
+    // The session is now in State-1 on STest FSM.
+    session.printStackTrace();
 
-// The stack trace is:
-//   Test4
-//   SubStateTest
-//   1
+    // The stack trace is:
+    //   Test4
+    //   SubStateTest
+    //   1
 
-session.processMessage( { msgId : "cd" } );
+} );
 
-// Although neither State-1 on SubStateTest, nor SubStateTest have a transition to "cd", Automata's engine traverses
-// current Session's stack trace upwards trying to find a suitable State with an exit transition to "cd". In this case,
-// SubStateTest itself consumes the transition, meaning the last Session's context will be poped out and the control flow
-// will be transitioning from SubStateTest to State-c.
+session.consume( { msgId : "cd" }, function() {
 
-// After that call, the session will be empty, since State-c is final, and every context is poped out the session.
-session.printStackTrace();
+    // Although neither State-1 on SubStateTest, nor SubStateTest have a transition to "cd", Automata's engine traverses
+    // current Session's stack trace upwards trying to find a suitable State with an exit transition to "cd". In this case,
+    // SubStateTest itself consumes the transition, meaning the last Session's context will be poped out and the control flow
+    // will be transitioning from SubStateTest to State-c.
 
-// prints: session empty.
+    // After that call, the session will be empty, since State-c is final, and every context is poped out the session.
+    session.printStackTrace();
+
+    // prints: session empty.
+} );
