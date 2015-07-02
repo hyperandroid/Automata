@@ -13,7 +13,7 @@
     /**
      * requireJS available ???
      */
-    var module = {};
+    root.module = {};
 
 
     /**
@@ -1741,6 +1741,6 @@
 
     }
 
-    return _export;
+    exports = module.exports = _export;
 
 })( typeof window!=='undefined' ? window : global );
