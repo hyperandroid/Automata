@@ -1,3 +1,17 @@
+07-02-2015 *1.1.0*
+------------------
+
+Major changes.
+
+* Session.dispatch and Session.processMessage dissapear in favor of Session.consume
+* Session.consume accepts a callback function triggered when the FDA ends executing its message queue.
+* All examples are working.
+* Added methods newGuardException and newSessionListener to the module object.
+* Added documentation for all object variables.
+* Added doclet annotations.
+* Checked readme.md
+* Guards must throw a GuardException and not any exception. This exception can be created by calling module.newGuardException.
+
 04-02-2013 *1.0.7*
 ------------------
 
@@ -26,7 +40,7 @@
   transition postGuard:     transition.event+"_postGuard"
 
 * Top level FSM now have correct name. The one they're registered with.
-* Fixed a bug that didn't passed properly the state on FSM enter to callbacks.
+* Fixed a bug that didn't pass properly the state on FSM enter to callbacks.
 
 04-15-2012 *1.0.4*
 ------------------

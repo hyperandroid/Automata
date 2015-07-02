@@ -59,7 +59,7 @@ context.registerFSM( {
 var session1= context.createSession("Test2");
 
 var session2= context.createSession("Test2");
-session2.dispatch( {msgId : "ab"} );
+session2.consume( {msgId : "ab"} );
 
 /*
 will print:

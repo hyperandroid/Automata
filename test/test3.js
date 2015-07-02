@@ -50,7 +50,7 @@ var Logic= function() {
         this.count++;
         console.log("count= "+this.count);
         if ( this.count<3 ) {
-            throw "PreGuard_tr_BC";
+            throw context.newGuardException("PreGuard_tr_BC");
         } else {
             console.log("Ok, go.");
         }
@@ -60,7 +60,7 @@ var Logic= function() {
         this.count++;
         console.log("count= "+this.count);
         if ( this.count<5 ) {
-            throw "PostGuard_tr_BC";
+            throw context.newGuardException("PostGuard_tr_BC");
         }
     };
 
@@ -122,7 +122,7 @@ context.registerFSM( {
 
 var session= context.createSession("Test3");
 
-session.addListener( {
+session.addListener( context.newSessionListener( {
     contextCreated      : function( obj ) {    },
     contextDestroyed    : function( obj ) {    },
     finalStateReached   : function( obj ) {
@@ -132,21 +132,21 @@ session.addListener( {
         console.log("SessionListener stateChanged");
     },
     customEvent         : function( obj ) {    }
-} );
+} ) );
 
 console.log("");
 console.log("Sent 'ab'");
-session.processMessage( { msgId: "ab" } );
+session.consume( { msgId: "ab" } );
 
 // fail on pre-guard. count=1, but no notification of state change sent.
 console.log("");
 console.log("Sent 'bc'");
-session.processMessage( { msgId: "bc" } );
+session.consume( { msgId: "bc" } );
 
 // fail on pre-guard. count=2, but no notification of state change sent.
 console.log("");
 console.log("Sent 'bc'");
-session.processMessage( { msgId: "bc" } );
+session.consume( { msgId: "bc" } );
 
 // on pre-guard. count=3.
 // Ok go transition.
@@ -155,8 +155,8 @@ session.processMessage( { msgId: "bc" } );
 // notification of 'stateChanged' on the observer.
 console.log("");
 console.log("Sent 'bc'");
-session.processMessage( { msgId: "bc" } );
+session.consume( { msgId: "bc" } );
 
 console.log("");
 console.log("Sent 'bc'");
-session.processMessage( { msgId: "bc" } );
+session.consume( { msgId: "bc" } );

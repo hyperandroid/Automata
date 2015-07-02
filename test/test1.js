@@ -90,6 +90,6 @@ context.registerFSM( {
 } );
 
 var session= context.createSession("Test1");
-session.dispatch( { msgId: "ab" } );
-session.dispatch( { msgId: "bc" } );
+session.consume( { msgId: "ab" } );
+session.consume( { msgId: "bc" } );
 
