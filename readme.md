@@ -2,17 +2,18 @@
 
 ##Description
 
-Automata is a formal finite state machine (FSM) framework.
-Its aims at offering a totally decoupled management of logic and data storage.
+Automata is a formal finite state machine (FDA) framework.
+It aims at offering a totally decoupled management of logic and data storage.
 It features all the needed elements to have a modern and flexible
 finite state machine framework like
 
-* FSM registry
+* FDA registry
 * Timed transitions
 * Auto transition
 * Sub states
 * Guards
-* FSM Session as message chroreographer
+* FDA Session as message chroreographer
+* Asynchronous execution
 
 ##How to
 
@@ -21,30 +22,33 @@ Automata works on browsers or Node.
 To get it:
 
 * npm install automata
+or
 * include automata.js script file
 
 Automata will then expose an object with some functions:
 
 ```javascript
 module.exports= {
- registerFSM,           // register a FSM object.
+ registerFSM,           // register a FDA object.
  registerFDA,           // same as registerFSM
- createSession,         // create a session for an FSM
+ createSession,         // create a session for an FDA
  guardException,        // create a guard exception
  newSessionListener     // create a session listener overriding methods with the parameter object.
 }
 ```
 
+There's also a typescript definition file: automata.d.ts
+
 ##How it works
 
-In Automata, there will be a single instance of every FSM. Think of the FSM as the class or template to build an 
-automata. From this unique FSM, you can create an undefined amount of sessions. Each session will track the current
+In Automata, there will be a single instance of every FDA. Think of the FDA as the class or template to build an 
+automata. From this unique FDA, you can create an undefined amount of sessions. Each session will track the current
  State, and the session data. 
-The Session and its data is created by supplying the FSM definition with a factory constructor function.
+The Session data is supplied to the session as an external object to the `createSession` method.
  
-First of all, one or more FSM must be registered in the system by calling either registerFSM (
+First of all, one or more FDA must be registered in the system by calling either registerFSM (
 register finite state machine) or registerFDA (register finite deterministic automaton). Both methods do the same, but
- i prefer calling registerFDA.
+ I prefer calling registerFDA.
 In the FDA definition one State must be labeled as initial. This will be the entry point. 
 
 A minimal state machine could be:
@@ -52,9 +56,8 @@ A minimal state machine could be:
 ```javascript
 fsmContext.registerFSM( {
 
-    // FSM registry name
+    // FDA registry name
     name    : "Test",
-    logic   : constructor_func,
 
     // States
     state  : [
@@ -86,41 +89,56 @@ fsmContext.registerFSM( {
 } );
 ```
 
-To start using this machine, a FSM session must be created from a registered FSM. For example:
+Only one State must be labeled as `initial`.
+To start using this machine, a `Session` must be created from a registered FDA. For example:
 
 ```javascript
-var session= fsmContext.createSession("Test");
+// LogicAndDataObject is an object that holds per-session data and function callbacks. Will come to it later.
+var session= fsmContext.createSession("Test", new LogicAndDataObject() );
+
+// optinally, a callback can be supplied:
+var session= fsmContext.createSession("Test", new LogicAndDataObject(), function(session) {
+    // fired whenever the creation process ends.
+    // more on this on Automata Execution.
+ });
 ```
 
 To send notification events to a session object, call consume method:
 
 ```javascript
 session.consume( { msgId: "12" } );
+// or 
 ```
 
-By consuming a message in the FDA, new messages being dispatched to the session can be created. Each successive
-message will be consumed in the next execution tick. This is why you can call:
+By consuming a message in the FDA, new messages being dispatched to the session can be created, and it is fully guaranteed
+that each successive message will be asynchronously consumed.
 
 ```javascript
 session.processMessage( {msgId: "12"}, function consumeEndCallback() {
-    // the session has no more pending messages to be consumed.
+    // msgId : "12" and all eventually sent messages from its activity has been consumed.
  });
 ```
 
-One important thing to note is that the FDA does not really know whether the queued-for-consumption messages come
-from consuming a message or from external events. In either case, the **consumeEndCallback** won't be invoked until
-the session's message queue is empty.
-
-This method accept as a valid message any object which contains a field called **msgId**. To trigger a transition,
+The `consume` method accepts as a valid message any object which contains a field called **msgId**. To trigger a transition,
  any message object's msgId value must be the value defined in the **event** attribute present in the Transition
  FDA definition block.
 
 A session accepts messages until it has reached a final State at its top level. From then and beyond, the session will
 toss exceptions if it has a message sent for consumption.
 
+### Session execution
+
+Until Automata V2, all session messages where synchronously consumed.
+From V2, all messages are **asynchronously** consumed, which renders Automata V2 incompatible with Automata V1.X.
+The synchronous consumption led to some unexpected problems like deep execution stack traces that could led to stackoverflow
+errors.
+In order to avoid execution callback errors, Automata V2 creates internal message queues. They work as follows:
+
+* for each user
+
 ##Logic object
 
-The FSM logic and state are isolated. The developer supplies a custom object to the FSM via the **logic** value in the
+The FDA logic and state are isolated. The developer supplies a custom object to the FDA via the **logic** value in the
 FDA definition object. It must be a constructor function and will create a new object per **Session**.
 The logic object will contain per session data, like for example the cards dealt in game, the authorization credentials,
 or any other Session specific information.
@@ -131,7 +149,7 @@ For both, State and Transitions, the calling **this** scope will be the logic ob
 
 Automata offers many activy hooks on its activity. The following hooks are available:
 
-State and FSM:
+State and FDA:
 
   * **onEnter**. Code fired on state enter.
   * **onExit**. Code fired on state exit.
@@ -149,7 +167,7 @@ A natural transition flow of executed actions for a transition from StateA to St
 StateA.onExit() -> Transition.onTransition() -> StateB.onEnter()
 ```
 
-Those hooks are defined in the **FSM JSON** definition as in the example:
+Those hooks are defined in the **FDA JSON** definition as in the example:
 
 For example:
 
@@ -178,11 +196,11 @@ function constructor_func() {
 }
 
 /**
- * Define a FSM
+ * Define a FDA
  */
  fsmContext.registerFSM( {
 
-     // FSM registry name
+     // FDA registry name
      name    : "Test",
      logic   : constructor_func,
 
@@ -285,7 +303,7 @@ endif
  pre/post-transition functions. A Guard is expected to throw a GuardException object by calling
   `transition.createThrowable` method or `module.newGuardException`.
  Those functions are optional, and must be set in the "transition" block of the
- FSM definition as follows:
+ FDA definition as follows:
 
 ```javascript
  fsmContext.registerFSM( {
@@ -345,15 +363,15 @@ Automata offers out of the box timed transitions by defining an **onTimer** bloc
  ```
 
 This instruments the engine that after 2 seconds of entering this state, an event {msgId: "12"} will be sent to the 
-FSM session. The timer is handled automatically, and set/canceled on state enter/exit respectively.
+FDA session. The timer is handled automatically, and set/canceled on state enter/exit respectively.
 The timers are checked every 200 milliseconds by the unique instance of FSMContext object. Thus, if you need to have
 less than 200ms timers, you may want to change TIMER_CHECK_RESOLUTION in the automata.js file.
 
 ##SubStates
 
-Automata allows to nest as much as needed substates. In fact, by defining a single FSM, the engine stacks two levels,
-one for the FSM, and the other, initially for the FSM's initial state. To define different levels, you must
-register more than one FSM in the registry, and then reference one of them as a substate in the "state" section:
+Automata allows to nest as much as needed substates. In fact, by defining a single FDA, the engine stacks two levels,
+one for the FDA, and the other, initially for the FDA's initial state. To define different levels, you must
+register more than one FDA in the registry, and then reference one of them as a substate in the "state" section:
 
 ```javascript
  fsmContext.registerFSM( {
@@ -377,19 +395,19 @@ register more than one FSM in the registry, and then reference one of them as a 
  } );
 ```
 
-Then, the transition section will identify this FSM as a substate by its name, STest. A "subState" can't have a
+Then, the transition section will identify this FDA as a substate by its name, STest. A "subState" can't have a
  regular name, nor onEnter/onExit functions. The name is the one of the FDA itself, and the activity hooks are
  overridden to do the stacking.
 
  The stacking of different subStates is done transparently, and they are handled by the "session" object. For each
- stacked level, a FSM.Context object is created. A context object is just a holder for the current state for each 
+ stacked level, a FDA.Context object is created. A context object is just a holder for the current state for each 
  nesting level.
 
 ##Transition from Substates
 
 The way in which Automata manages state changes is made hierarchycally. That means, the engine will try to find a
 suitable transition for a given incoming message regardless of its nesting level.
-So for any given FSM stacktrace, the engine will traverse upwards trying to find a suitable state to fire a
+So for any given FDA stacktrace, the engine will traverse upwards trying to find a suitable state to fire a
 transition for the dispatched event.
 
 (Warning, offending ascii art. States between parenthesis, transitions between square brackets.)
@@ -425,13 +443,13 @@ Additionally, this session will be finished since S3 is a final State (this nest
 and so it is ROOT, which causes the session to be emptied.
 
 
-##FSM listeners
+##FDA listeners
 
-Any FSM session activity can be monitored by adding a listener.
+Any FDA session activity can be monitored by adding a listener.
 For example:
 
 ```javascript
-session.addListener( new FSM.SessionListener() );
+session.addListener( new FDA.SessionListener() );
 ```
 
 or
@@ -469,9 +487,9 @@ The obj parameter for each listener object function contains the following param
 
 In all cases:
 
-* **session**:    is the FSM created session.
-* **context**:    is an internal FSM object. A context is just a holder for the current state for each subState the system enters.
-* **newState**:   a FSM state object.
+* **session**:    is the FDA created session.
+* **context**:    is an internal FDA object. A context is just a holder for the current state for each subState the system enters.
+* **newState**:   a FDA state object.
 * **message**:    a message object. The only constraint for these message objects is they must have a "msgId" field.
 
 ##Custom events
@@ -481,7 +499,7 @@ The preferred way for sending custom events will be by calling:
 session.fireCustomEvent( a_json_object );
 ```
 
-and have a listener/observer object attached to the sending FSM session.
+and have a listener/observer object attached to the sending FDA session.
 This method will be notified on the method
 
 ```javascript
@@ -490,9 +508,9 @@ customEvent         : function( { session: session, customEvent: a_json_object }
 
 #Samples
 
-##Sample 1 - Simple FSM
+##Sample 1 - Simple FDA
 
-This sample shows how to define common FSM session callback points. Either on logic object, or by defining a callback.
+This sample shows how to define common FDA session callback points. Either on logic object, or by defining a callback.
 In either case, **this** is defined to be the session's logic object.
 
 ```javascript
@@ -566,7 +584,7 @@ session2.consume( { msgId: "ab" } );
 
 ```
 
-##Sample 2 - FSM with timed events
+##Sample 2 - FDA with timed events
 
 This sample show how to define a timed transition.
 
@@ -803,12 +821,12 @@ session.consume( { msgId: "bc" } );
 
 ## Sample 4 - SubStates
 
-Sub States is an Automata feature which allows to nest different registered FSM as states of other FSM.
-The mechanism is straightforward, just define a **substate** block in an FSM **state** definition block.
-Automata will handle automatically all the nesting procedure, call the FSM action hooks and set the system's new
+Sub States is an Automata feature which allows to nest different registered FDA as states of other FDA.
+The mechanism is straightforward, just define a **substate** block in an FDA **state** definition block.
+Automata will handle automatically all the nesting procedure, call the FDA action hooks and set the system's new
 current state.
 
-A substate, or a FSM does not define neither onEnter nor onExit function callbacks.
+A substate, or a FDA does not define neither onEnter nor onExit function callbacks.
 
 It is done as follows:
 
@@ -833,11 +851,11 @@ var Logic= function() {
     return this;
 };
 
-// Register one FSM model.
+// Register one FDA model.
 context.registerFSM( {
     name    : "SubStateTest",
 
-    // in a sub state FSM a Logic object constructor function is optional
+    // in a sub state FDA a Logic object constructor function is optional
 
     state  : [
         {
@@ -872,7 +890,7 @@ context.registerFSM( {
     ]
 } );
 
-// register another FSM model
+// register another FDA model
 
 context.registerFSM( {
 
@@ -927,7 +945,7 @@ var session= context.createSession("Test4");
 session.consume( { msgId : "ab" } );
 session.consume( { msgId : "bc" }, function() {
     
-    // The session is now in State-1 on STest FSM.
+    // The session is now in State-1 on STest FDA.
     session.printStackTrace();
     
     // The stack trace is:

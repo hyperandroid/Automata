@@ -1,3 +1,11 @@
+07-07-2015 *2.0.0*
+------------------
+
+* Version incompatible with any 1.x.x version. Read readme for details.
+* Fully asynchronous execution.
+* Added 'consume message' callback.
+* Logic object does not belong to the automata defintion anymore.
+
 07-02-2015 *1.1.1*
 ------------------
 

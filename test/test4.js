@@ -38,8 +38,6 @@ var Logic= function() {
 context.registerFSM( {
     name    : "SubStateTest",
 
-    // in a sub state FSM a Logic object constructor function is optional
-
     state  : [
         {
             name    : "1",
@@ -87,7 +85,6 @@ context.registerFSM( {
 context.registerFSM( {
 
     name    : "Test4",
-    logic   : Logic,
 
     state  : [
         {
@@ -142,29 +139,32 @@ context.registerFSM( {
 
 } );
 
-var session= context.createSession("Test4");
-session.consume( { msgId : "ab" } );
-session.consume( { msgId : "bc" }, function() {
+var session= context.createSession("Test4", new Logic(), function(session) {
+    session.consume({msgId: "ab"});
+    session.consume({msgId: "bc"}, function () {
 
-    // The session is now in State-1 on STest FSM.
-    session.printStackTrace();
+        // The session is now in State-1 on STest FSM.
+        session.printStackTrace();
 
-    // The stack trace is:
-    //   Test4
-    //   SubStateTest
-    //   1
+        // The stack trace is:
+        //   Test4
+        //   SubStateTest
+        //   1
 
-} );
+        session.consume( { msgId : "cd" }, function() {
 
-session.consume( { msgId : "cd" }, function() {
+            // Although neither State-1 on SubStateTest, nor SubStateTest have a transition to "cd", Automata's engine traverses
+            // current Session's stack trace upwards trying to find a suitable State with an exit transition to "cd". In this case,
+            // SubStateTest itself consumes the transition, meaning the last Session's context will be poped out and the control flow
+            // will be transitioning from SubStateTest to State-c.
 
-    // Although neither State-1 on SubStateTest, nor SubStateTest have a transition to "cd", Automata's engine traverses
-    // current Session's stack trace upwards trying to find a suitable State with an exit transition to "cd". In this case,
-    // SubStateTest itself consumes the transition, meaning the last Session's context will be poped out and the control flow
-    // will be transitioning from SubStateTest to State-c.
+            // After that call, the session will be empty, since State-c is final, and every context is poped out the session.
+            session.printStackTrace();
 
-    // After that call, the session will be empty, since State-c is final, and every context is poped out the session.
-    session.printStackTrace();
+            // prints: session empty.
+        } );
 
-    // prints: session empty.
-} );
+    });
+
+});
+

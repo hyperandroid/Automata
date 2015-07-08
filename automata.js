@@ -10,35 +10,103 @@
 
     var TIMER_CHECK_RESOLUTION= 200;
 
+
     /**
      * requireJS available ???
      */
     root.module = {};
 
+    /**
+     * @callback  ConsumeCallback
+     * @param session {FSM.Session}
+     */
 
     /**
-     * @name TransitionCallback
-     * @type function
+     * @callback TransitionCallback
      * @param state {FSM.State}
      * @param transition {FSM.Transition}
      * @param message {object}
      */
 
     /**
-     * @name StateCallback
-     * @type function
+     * @callback StateCallback
      * @param state {FSM.State}
      * @param transition {FSM.Transition}
      * @param message {object}
      */
 
-    /**
-     * @name StateTimeTransitionInfo
-     * @type object
-     * @param event {object}
-     * @param timeout {number}
-     */
 
+    /**
+     * @name FSM
+     * @namespace
+     *
+     * Local module definition.
+     */
+    var FSM= {};
+
+    /**
+     * @typedef {{ message :FSM.TransitionMessage, callback : ConsumeCallback}}
+     */
+    FSM.MessageCallbackTuple;
+
+    /**
+     * @typedef {{ event : FSM.TransitionMessage, timeout : number}}
+     */
+    FSM.StateTimeTransitionInfo;
+
+    /**
+     * @typedef {{ msgId : string, data? : object }}
+     */
+    FSM.TransitionMessage;
+
+    /**
+     * @typedef {{
+     *  timeout : number,
+     *  event : FSM.TransitionMessage
+     * }}
+     */
+    var FSMDefinitionStateTimer;
+
+    /**
+     * @typedef {{
+     *  name : string,
+     *  initial : boolean=,
+     *  onTimer : FSMDefinitionStateTimer=,
+     *  onEnter : (string|StateCallback),
+     *  onExit : (string|StateCallback)
+     * }}
+     */
+    var FSMDefinitionState;
+
+    /**
+     * @typedef {{
+     *  name : string,
+     * }}
+     */
+    var FSMDefinitionSubState;
+
+    /**
+     * @typedef {{
+     *  event : string,
+     *  from : string,
+     *  to : string,
+     *  onTransition : (string|TransitionCallback),
+     *  onPreGuard : (string|TransitionCallback),
+     *  onPostGuard : (string|TransitionCallback)
+     * }}
+     */
+    var FSMDefinitionTransition;
+
+    /**
+     * @typedef {{
+     *  name :       string,
+     *  state :      Array<FSMDefinitionState|FSMDefinitionSubState>,
+     *  transition : Array<FSMDefinitionTransition>,
+     *  onEnter : (string|StateCallback),
+     *  onExit : (string|StateCallback)
+     * }}
+     */
+    var FSMDefinition;
 
     /**
      * Regular extension mechanism.
@@ -108,17 +176,9 @@
     var fsmContext= null;
 
     /**
-     * @name FSM
-     * @namespace
-     *
-     * Local module definition.
-     */
-    var FSM= {};
-
-    /**
      * @memberOf FSM
      *
-     * @class FSMTimerTask
+     * @class TimerTask
      * @classdesc
      *
      * This object encapsulates a task timer.
@@ -126,7 +186,7 @@
      *
      * @constructor
      * @param session <FSM.Session> a session object
-     * @param event   <Object> a message object.
+     * @param event   <FSM.TransitionMessage> a message object.
      * @param time    <number> an integer specifying milliseconds.
      */
     FSM.TimerTask= function( session, event, time ) {
@@ -134,7 +194,7 @@
         /**
          * Session to forward the event to on timeout.
          * @name session
-         * @memberOf FSM.TimerTask
+         * @memberOf TimerTask.prototype
          * @type {FSM.Session}
          */
         this.session=       session;
@@ -143,15 +203,15 @@
          * This event will be forwarded to the task session owner when timeout.
          * This is an event to be sent to a transition.
          * @name event
-         * @memberOf FSM.TimerTask
-         * @type {Object}
+         * @memberOf TimerTask.prototype
+         * @type {FSM.TransitionMessage}
          */
         this.event=         event;
 
         /**
          * Milliseconds to consider this task expired.
          * @name triggerTime
-         * @memberOf FSM.TimerTask
+         * @memberOf TimerTask.prototype
          * @type {number}
          */
         this.triggerTime=   time;
@@ -160,7 +220,7 @@
          * TimerTask id.
          * This id is returned whenever a timed-transition is set. Thus, timed events can be cancelled.
          * @name id
-         * @memberOf FSM.TimerTask
+         * @memberOf TimerTask.prototype
          * @type {number}
          */
         this.id=            __TimerIndex++;
@@ -169,7 +229,7 @@
          * Cache session's current state. When the task times-out, it is checked whether the session is still in the
          * same state. If so, the timeout event is sent.
          * @name contextState
-         * @memberOf FSM.TimerTask
+         * @memberOf TimerTask.prototype
          * @type {FSM.State}
          */
         this.contextState=  session.getCurrentState();
@@ -177,7 +237,7 @@
         /**
          * Time when the timer task was created. More or less at scheduleTime + triggerTime the task times out.
          * @mame scheduleTime
-         * @memberOf FSM.TimerTask
+         * @memberOf TimerTask.prototype
          * @type {number}
          */
         this.scheduleTime=  new Date().getTime();
@@ -185,7 +245,7 @@
         /**
          * Internal flag of timer task validity.
          * @name consumed
-         * @memberOf FSM.consumed
+         * @memberOf TimerTask.prototype
          * @type {boolean}
          */
         this.consumed    =  false;
@@ -264,7 +324,7 @@
         /**
          * Array of pending timer tasks.
          * @name timerTask
-         * @memberOf FSM.FSMContext
+         * @memberOf FSMContext.prototype
          * @type {Array<FSM.TimerTask>}
          */
         this.timerTasks=    [];
@@ -274,7 +334,7 @@
          * From each entry a FSM session object can be built.
          *
          * @name registry
-         * @memberOf FSM.FSMContext
+         * @memberOf FSMContext.prototype
          * @type {map<string, FSM.FSM>}
          */
         this.registry=      {};
@@ -282,7 +342,7 @@
         /**
          * This timer is used to check all the TimerTask timeouts.
          * @name timerId
-         * @memberOf FSM.FSMContext
+         * @memberOf FSMContext.prototype
          * @type {number}
          */
         this.timerId=       root.setInterval( this.__checkTimers.bind(this), TIMER_CHECK_RESOLUTION );
@@ -346,7 +406,6 @@
          * Get a FSM.FSM registered instance.
          *
          * @param name {string} get a FSM.FSM previously registered object.
-         * @private
          */
         getFSM : function( name ) {
             return this.registry[ name ];
@@ -355,17 +414,18 @@
         /**
          * Create a given FSM session.
          * @param fromFSM {string} a FSM name. Must be previously registered by calling registerFSM function.
-         * @param args {Array.<*>} an array of parameters passed from context.createSession()
+         * @param logic {object} an object to be used as session data.
+         * @param callback {ConsumeCallback}
          * @return {FSM.Session} an initialized session object.
          */
-        createSession : function( fromFSM, args ) {
+        createSession : function( fromFSM, logic, callback ) {
 
             var fsm= this.registry[ fromFSM ];
             if ( typeof fsm==="undefined" ) {
                 throw "FSM "+fromFSM+" does not exist.";
             }
 
-            return fsm.createSession(args);
+            return fsm.createSession(logic, callback);
         },
 
         /**
@@ -376,7 +436,7 @@
          * Should not be called directly.
          *
          * @param session {FSM.Session} a session object
-         * @param event {object} a message object
+         * @param event {FSM.TransitionMessage} a message object
          * @param time {number} an integer indicating milliseconds.
          *
          * @return {number} a unique timertask id.
@@ -415,29 +475,46 @@
      *
      * An Automata specific exception raised when a guard fails.
      *
-     * @param msg {Object}
-     * @returns {FSM.GuardException}
+     * @param msg {string}
+     *
+     * @return {FSM.GuardException}
      * @constructor
      */
     FSM.GuardException= function(msg) {
-        this.msg= msg;
 
-        this.toString= function() {
-            return this.msg.toString();
-        };
+        /**
+         * @name msg
+         * @memberOf GuardException.prototype
+         * @type {string}
+         */
+        this.msg = msg;
 
         return this;
     };
 
     /**
+     * @lend FSM.GuardException.prototype
+     */
+    FSM.GuardException.prototype= {
+
+        toString : function() {
+            return this.msg.toString();
+        }
+    };
+
+    /**
      * @memberOf FSM
      *
-     * @class FSMTransition
+     * @class Transition
      * @classdesc
      *
      * An Automata framework transition.
      * This class is private and should not be used directly.
      * Any given Transition which belongs to a FSM object is a unique instance.
+     *
+     * @param event {string}
+     * @param initialState {FSM.State}
+     * @param finalState {FSM.State}
      *
      * @constructor
      */
@@ -446,24 +523,23 @@
         /**
          * An string identifying an event this transition will be fired by.
          * @name event
-         * @memberOf FSM.Transition
+         * @memberOf Transition.prototype
          * @type string
          */
         this.event=         event;
 
         /**
          * Transition initial State.
-         * All transition but the 'inititial transition' have a initial state.
          * @name initialState
-         * @memberOf FSM.Transition
-         * @type FSM.State
+         * @memberOf FSM.Transition.prototype
+         * @type {FSM.State}
          */
         this.initialState=  initialState;
 
         /**
          * Transition final State.
          * @name finalState
-         * @memberOf FSM.Transition
+         * @memberOf Transition.prototype
          * @type FSM.State
          */
         this.finalState=    finalState;
@@ -474,7 +550,7 @@
          * If a function, it will be invoked.
          *
          * @name onTransition
-         * @memberOf FSM.Transition
+         * @memberOf Transition.prototype
          * @type {string|TransitionCallback}
          */
         this.onTransition=  null;
@@ -485,7 +561,7 @@
          * If a function, it will be invoked.
          *
          * @name onPreGuard
-         * @memberOf FSM.Transition
+         * @memberOf Transition.prototype
          * @type {string|TransitionCallback}
          */
         this.onPreGuard=    null;
@@ -496,7 +572,7 @@
          * If a function, it will be invoked.
          *
          * @name onPreGuard
-         * @memberOf FSM.Transition
+         * @memberOf Transition.prototype
          * @type {string|TransitionCallback}
          */
         this.onPostGuard=   null;
@@ -533,7 +609,7 @@
 
         /**
          * Create a GuardException.
-         * @param msg {object}
+         * @param msg {string}
          */
         createThrowable : function( msg ) {
             throw new FSM.GuardException(msg);
@@ -560,7 +636,7 @@
 
         /**
          * Do this transition's pre-transition code
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          * @param session {FSM.Session}
          */
         firePreTransition : function( msg, session) {
@@ -575,7 +651,7 @@
 
         /**
          * Do this transition's post-transition code
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          * @param session {FSM.Session}
          */
         firePostTransition : function( msg, session) {
@@ -586,7 +662,7 @@
          * Do this transition's pre-transition code. Though it may seem equal to firePreTransition it is handled
          * in another function because an exception could be throws. In such case a pre-guard is assumed to have
          * been fired.
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          * @param session {FSM.Session}
          */
         firePreTransitionGuardedByPostCondition : function( msg, session ) {
@@ -603,7 +679,7 @@
          * Do this transition's post-transition code. Though it may seem equal to firePreTransition it is handled
          * in another function because an exception could be throws. In such case a pre-guard is assumed to have
          * been fired.
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          * @param session {FSM.Session}
          */
         firePostTransitionGuardedByPostCondition : function( msg, session ) {
@@ -615,7 +691,7 @@
         /**
          * Fire pre-Guard code.
          * If the method throws an exception, this transition is aborted as if it hadn't been fired.
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          * @param session {FSM.Session}
          */
         checkGuardPreCondition : function( msg, session ) {
@@ -626,7 +702,7 @@
          * Fire post-Guard code.
          * If the method throws an exception, this transition is vetoed, and it will issue an auto-transition instead
          * of a state-to-state transition.
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          * @param session {FSM.Session}
          */
         checkGuardPostCondition : function( msg, session ) {
@@ -635,7 +711,8 @@
 
         /**
          * Notify observers about this transition fire event.
-         * @param msg {object} the message which fired this transition
+         *
+         * @param msg {FSM.TransitionMessage} the message which fired this transition
          * @param session {FSM.Session}
          *
          * @private
@@ -659,7 +736,7 @@
 
     /**
      * @memberOf FSM
-     * @class FSMState
+     * @class State
      * @classdesc
      *
      * This object defines a FSM state. There's a finite number of states, and each session can only be in one such
@@ -675,16 +752,16 @@
          * Exiting transitions from this State.
          *
          * @type {map<string,FSM.Transition>}
-         * @memberOf FSM.State
+         * @memberOf State.prototype
          * @name exitTransitions
          */
         this.exitTransitions=       {};
 
         /**
          * Number of exit transitions. Needed to know which State is a final state (no exit transitions).
-         * @name FSM.State.exitTransitionsCount
+         * @name exitTransitionsCount
          * @type {number}
-         * @memberOf FSM.State
+         * @memberOf State.prototype
          */
         this.exitTransitionsCount=  0;
 
@@ -692,7 +769,7 @@
          * State name.
          *
          * @type {string}
-         * @memberOf FSM.State
+         * @memberOf State.prototype
          * @name name
          */
         this.name=                  name || ( "state"+__StateIndex++ );
@@ -701,7 +778,7 @@
          * On State Enter action.
          * @type {string|StateCallback}
          * @name onEnter
-         * @memberOf FSM.State
+         * @memberOf State.prototype
          */
         this.onEnter=               null;
 
@@ -709,15 +786,15 @@
          * On State Exit action.
          * @type {string|StateCallback}
          * @name onEnter
-         * @memberOf FSM.State
+         * @memberOf State.prototype
          */
         this.onExit=                null;
 
         /**
          * Described a timed transition to this State.
-         * @type {StateTimeTransitionInfo}
+         * @type {FSM.StateTimeTransitionInfo}
          * @name onTimer
-         * @memberOf FSM.State
+         * @memberOf FSM.State.prototype
          */
         this.onTimer=               null;
 
@@ -726,7 +803,7 @@
          *
          * @type {FSM.FSM}
          * @name subState
-         * @memberOf FSM.State
+         * @memberOf State.prototype
          */
         this.subState=              null;
 
@@ -794,7 +871,7 @@
 
         /**
          * Add a timed transition to this state.
-         * @param c {StateTimeTransitionInfo}
+         * @param c {FSM.StateTimeTransitionInfo}
          */
         setOnTimer : function( c ) {
             this.onTimer= c;
@@ -802,9 +879,13 @@
 
         /**
          * Get a transition for the defined typeof message.
-         * @param msg {string}
+         * @param msg {FSM.TransitionMessage}
          */
         getTransitionFor : function( msg ) {
+            if (!msg || !msg.msgId ) {
+                // WTF ??
+                return null;
+            }
             return this.exitTransitions[ msg.msgId ];
         },
 
@@ -820,7 +901,7 @@
          * It may seem to set a timer, and calling the optional onEnter callback function.
          * @param session {FSM.Session}
          * @param transition {FSM.Transition}
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          */
         callOnEnter : function( session, transition, msg ) {
             if ( this.onTimer ) {
@@ -838,7 +919,7 @@
          *
          * @param session {FSM.Session}
          * @param transition {FSM.Transition}
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          */
         callOnExit : function( session, transition, msg ) {
             if( this.onTimer ) {
@@ -858,6 +939,8 @@
     /**
      * @memberOf FSM
      * @class FSM
+     * @extends FSM.State
+     *
      * @classdesc
      *
      * FSM defines a complete finite state machine.
@@ -869,37 +952,35 @@
      * supplied as parameter.
      *
      * @constructor
-     * @param sessionObjectFactory {Function} object factory
      * @param name {string} FSM name
      *
      */
-    FSM.FSM= function( sessionObjectFactory, name ) {
+    FSM.FSM= function( name ) {
 
         FSM.FSM.superclass.constructor.call(this, name);
 
         /**
-         * Session factory.
-         *
-         * @name sessionObjectFactory
-         * @memberOf FSM.FSM
-         * @type {Function}
+         * @name onEnter
+         * @type {string|StateCallback}
+         * @memberOf FSM.prototype
          */
-        this.sessionObjectFactory=  sessionObjectFactory;
+        this.onEnter=              this.getName()+"_enter";
 
         /**
-         * @type {string}
-         * @private
+         * @name onExit
+         * @type {string|StateCallback}
+         * @memberOf FSM.prototype
          */
-        this._onEnter=              this.name+"_enter";
+        this.onExit=              this.getName()+"_exit";
 
         /**
-         * FSM initial transition.
+         * Defines the FDA's initial state.
          *
-         * @name initialTransition
-         * @type {FSM.Transition}
-         * @memberOf FSM.FSM
+         * @memberOf FSM.prototype
+         * @name initialState
+         * @type {FSM.State}
          */
-        this.initialTransition=     null;
+        this.initialState=          null;
 
         return this;
     };
@@ -908,7 +989,6 @@
      * @lend FSM.FSM.prototype
      */
     FSM.FSM.prototype= {
-
 
         /**
          * Initialize a Finite State Machine.
@@ -919,30 +999,7 @@
          * @param initialState {FSM.State}
          */
         initialize : function( initialState ) {
-
-            var me= this;
-
-            FSM.FSM.superclass.setOnEnter.call( this, function( session, state, transition, msg ) {
-                me.initialTransition.fireTransition( {
-                        msgId : __InitialTransitionId
-                    },
-                    session );
-            } );
-
-            this.initialState=                  initialState;
-            this.initialTransition=             new FSM.Transition(__InitialTransitionId, null, initialState );
-            this.initialTransition.setOnTransition( function( session, state, transition, msg ) {
-                session.push( initialState );
-            });
-        },
-
-        /**
-         * Set FSM on enter callback.
-         * @param m {string|StateCallback}
-         */
-        setOnEnter : function( m ) {
-            this._onEnter= m;
-            return this;
+            this.initialState= initialState;
         },
 
         /**
@@ -951,11 +1008,14 @@
          *
          * @param session {FSM.Session}
          * @param transition {FSM.Transition}
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          */
         callOnEnter : function( session, transition, msg ) {
-            session.callMethod( this._onEnter, this, transition, msg );
             FSM.FSM.superclass.callOnEnter.call( this, session, transition, msg );
+            session.consume( {
+                msgId : __InitialTransitionId
+            });
+
         },
 
         /**
@@ -974,17 +1034,17 @@
          * this way for the sake of simplicity, but will probably change this semantics in the future,
          * (by adding an Automata with just one substate) which could cause backward incompatibilities.
          *
-         * @param args {object} session factory initialization parameters.
+         * @param sessionData {object} session factory initialization parameters.
+         * @param callback {ConsumeCallback}
          */
-        createSession : function(args) {
+        createSession : function(sessionData, callback ) {
 
-            if ( !this.sessionObjectFactory ) {
-                return null;
-            }
-
-            var session= new FSM.Session( new this.sessionObjectFactory(session, args) );
-            session.push( this );
-            this.callOnEnter( session, null, null );
+            var session= new FSM.Session( sessionData );
+            session.push(this);
+            FSM.FSM.superclass.callOnEnter.call( this, session, null, null );
+            session.consume( {
+                msgId : __InitialTransitionId
+            }, callback);
 
             return session;
         }
@@ -1014,7 +1074,7 @@
          *
          * @name currentState
          * @type {FSM.State}
-         * @memberOf FSM.SessionContext
+         * @memberOf SessionContext.prototype
          */
         this.currentState= state;
 
@@ -1045,7 +1105,7 @@
 
         /**
          * Get an exiting transition defined by this message for the current State.
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          */
         getTransitionFor : function( msg ) {
             return this.currentState.getTransitionFor( msg );
@@ -1055,7 +1115,7 @@
          * Call this current State onExit callback function.
          * @param session {FSM.Session}
          * @param transition {FSM.Transition}
-         * @param msg {object}
+         * @param msg {FSM.TransitionMessage}
          */
         exit : function( session, transition, msg) {
             this.currentState.callOnExit(session, transition, msg);
@@ -1065,7 +1125,7 @@
          * Print this context current state info.
          */
         printStackTrace : function() {
-            FSM.Log.d("  "+this.currentState.name);
+            FSM.Log.d("  "+this.currentState.getName());
         }
 
 
@@ -1172,7 +1232,7 @@
          * This is the stack-trace of the different sub-states a FSM currently is in.
          * @type {Array.<FSM.SessionContext>}
          * @name sessionContextList
-         * @memberOf FSM.Session
+         * @memberOf Session.prototype
          */
         this.sessionContextList=    [];
 
@@ -1182,7 +1242,7 @@
          * etc.
          *
          * @name sessionListeners
-         * @memberOf FSM.Session
+         * @memberOf Session.prototype
          * @type {Array.<FSM.SessionListener>}
          */
         this.sessionListener=       [];
@@ -1194,7 +1254,7 @@
          * This is a general purpose map holder, use wisely.
          *
          * @name properties
-         * @memberOf FSM.Session
+         * @memberOf Session.prototype
          * @type {map<string,object>}
          */
         this.properties=            {};
@@ -1203,7 +1263,7 @@
          * Session data. An object created form the FSM factory constructor function.
          *
          * @name logic
-         * @memberOf FSM.Session
+         * @memberOf Session.prototype
          * @type {object} an object returned from the FSM factory constructor.
          */
         this.logic=                 logic;
@@ -1213,22 +1273,122 @@
          * These messages are not consumed immediately.
          *
          * @name messages
-         * @memberOf FSM.Session
-         * @type {Array.<object>}
+         * @memberOf Session.prototype
+         * @type {Array.<FSM.SessionMessageQueue>}
          */
-        this.messages =             [];
+        this.messageQueues =             [];
+
+        /**
+         * Internal flag used to signal that 'consume' calls are in the context of a 'callMethod'.
+         *
+         * @name _inCallMethod
+         * @memberOf Session.prototype
+         * @type {Array.<FSM.SessionMessageQueue>}
+         */
+        this._inCallMethod = false;
 
         return this;
     };
 
-    FSM.Session.prototype= {
+    /**
+     * @class SessionMessageQueue
+     * @memberOf FSM
+     * @classdesc
+     *
+     * This function creates objects to hold messages for a unit of work.
+     * The unit of work is a user-made 'consume' method, and all the transitions generated from this call.
+     *
+     * This is a FIFO queue.
+     *
+     * @param msg {FSM.TransitionMessage}
+     * @param callback {ConsumeCallback}
+     * @returns {FSM.SessionMessageQueue}
+     *
+     * @constructor
+     */
+    FSM.SessionMessageQueue = function( msg, callback ) {
 
+        /**
+         * @name _callback
+         * @type {ConsumeCallback}
+         * @memberOf SessionMessageQueue.prototype
+         * @private
+         */
+        this._callback = callback;
+
+        /**
+         * @name _messageQueue;
+         * @type {Array<FSM.MessageCallbackTuple>}
+         * @memberOf SessionMessageQueue.prototype
+         * @private
+         */
+        this._messages = [];
+
+        this.push( msg );
+
+        return this;
+    };
+
+    /**
+     * @lend FSM.SessionMessageQueue.prototype
+     */
+    FSM.SessionMessageQueue.prototype = {
+
+        /**
+         *
+         * @param message {FSM.TransitionMessage} a valid FSM message. can be null if called from the initial state context.
+         * @param callback {ConsumeCallback?}
+         */
+        push : function( message, callback ) {
+            if ( message ) {
+                this._messages.push( {
+                    message: message,
+                    callback: callback
+                });
+            }
+        },
+
+        /**
+         * Get the head of messages.
+         * @returns {FSM.MessageCallbackTuple}
+         */
+        shift : function() {
+            return this._messages.shift();
+        },
+
+        /**
+         * Get number of pending messages.
+         * @returns {Number}
+         */
+        getNumMessages : function() {
+            return this._messages.length;
+        },
+
+        /**
+         * Notify this messages queue callback.
+         * This happens when the unit of work ends, ie the queue gets empty.
+         *
+         * @param session {FSM.Session}
+         */
+        notify : function( session ) {
+            if ( this._callback ) {
+                this._callback( session );
+            }
+        }
+    };
+
+    /**
+     * @lend FSM.Session.prototype
+     */
+    FSM.Session.prototype= {
 
         /**
          * Never call this method directly.
-         * For a given Automata event triggering (state.onEnter, state.onExit, transition.onPre/PostGuard,
+         * For a given Automata event triggering function (state.onEnter, state.onExit, transition.onPre/PostGuard,
          * transition.onTransition), this method makes the appropriate call, either to the logic object, or to
          * the supplied callback function instead.
+         * This method also sets an internal flag (_inCallMethod) which indicates that `session.consume` calls happening
+         * inside a called method must not creat a message bucket, but queue messages in the current message bucket.
          */
         callMethod : function( /* method, argument1, ... */ ) {
             var args= Array.prototype.slice.call( arguments );
@@ -1240,15 +1400,19 @@
 
             args.splice(0,0,this);
 
+            this._inCallMethod= true;
+
             if ( typeof method==="function" ) {
                 method.apply( this.logic, args );
             } else {
-                if ( typeof this.logic[method]!=="undefined" ) {
+                if ( this.logic && typeof this.logic[method]!=="undefined" ) {
                     this.logic[ method ].apply( this.logic, args );
                 } else {
                     // no method with given name on session object data.
                 }
             }
+
+            this._inCallMethod= false;
         },
 
         /**
@@ -1276,7 +1440,6 @@
          *
          * @param state {FSM.State}
          *
-         * @private
          */
         push : function( state ) {
             var sc= new FSM.SessionContext( state );
@@ -1290,7 +1453,7 @@
          * Pop and reset the last FSM.Context object level.
          *
          * @param transition {FSM.Transition} the firing transition
-         * @param msg {object} the message that triggered the transition
+         * @param msg {FSM.TransitionMessage} the message that triggered the transition
          *
          * @private
          */
@@ -1307,31 +1470,72 @@
 
         /**
          * Asynchronously consume a message.
-         * @param msg {object}
-         * @param endCallback  {function}
+         * @param msg {FSM.TransitionMessage}
+         * @param endCallback  {ConsumeCallback?}
          */
         consume : function( msg, endCallback ) {
-            this.messages.push( msg );
-            if ( !this.transitioning ) {
-                this.__processMessages(endCallback);
+
+            if ( msg.msgId===__InitialTransitionId ) {
+                this.push( this.getCurrentState().initialState );
+                this.messageQueues.push( new FSM.SessionMessageQueue(null, endCallback) );
+                this.getCurrentState().callOnEnter( this, null, msg );
+            } else {
+
+                // calling consume from a method call, not a user generated consume call.
+                if ( this._inCallMethod ) {
+                    this.messageQueues[0].push( msg, endCallback );
+                } else {
+                    this.messageQueues.push( new FSM.SessionMessageQueue( msg, endCallback ) );
+                }
             }
+
+            this.__doConsume();
+        },
+
+        __doConsume : function() {
+            setTimeout(this.__processMessages.bind(this), 0);
+        },
+
+        isEmpty : function() {
+            return this.sessionContextList.length===0
         },
 
         /**
          * Consume a message.
          * A message consumption may imply more messages to be consumed. The callback will be invoked
          * when no more messages are available to be processed.
-         *
-         * @param endCallback {function} a callback function fired when there're no pending messages to be processed.
          */
-        __processMessages : function( endCallback ) {
+        __processMessages : function( ) {
 
-            if ( this.sessionContextList.length===0 ) {
+            if ( this.messageQueues.length===0 ) {
+                return;
+            }
+
+            if ( this.isEmpty() ) {
                 throw "Empty Session";
             }
 
-            // remove first message
-            var msg= this.messages.shift();
+            var queue= this.messageQueues[0];
+            // trivial exit
+            if ( queue.getNumMessages()===0 ) {
+
+                queue.notify( this );
+                this.messageQueues.shift();
+                if ( this.messageQueues.length>0 ) {
+                    this.__doConsume();
+                }
+                // sanity clear
+                this._inCallMethod= false;
+                return;
+            }
+
+            /**
+             * remove first message
+             * @type FSM.MessageCallbackTuple
+             */
+            var pair= queue.shift();
+            var msg= pair.message;
+            var callback= pair.callback;
 
             var firingTransition= null; // FSM.Transition
             var target=           null; // FSM.SessionContext
@@ -1345,7 +1549,12 @@
             }
 
             if ( !firingTransition ) {
-                throw "No transition on state "+this.getCurrentState().name+" for message "+msg.msgId;
+                FSM.Log.e( "No transition on state "+this.getCurrentState().name+" for message "+msg.msgId );
+                if ( callback ) {
+                    callback(this);
+                }
+                this.__doConsume();
+                return;
             }
 
             // check guard pre condition.
@@ -1353,15 +1562,18 @@
                 firingTransition.checkGuardPreCondition( msg, this );
             } catch( e ) {
                 if ( e instanceof FSM.GuardException ) {
+                    FSM.Log.i(e.toString());
                     this.fireGuardPreCondition(firingTransition, msg, e);
+                    if ( callback ) {
+                        callback(this);
+                    }
+                    this.__doConsume();
                     return; // fails on pre-guard. simply return.
                 } else {
                     FSM.Log.e("An error ocurred: "+ e.message);
                     this.printStackTrace();
                 }
             }
-
-            this.transitioning= true;
 
             try {
                 firingTransition.checkGuardPostCondition( msg, this );
@@ -1391,6 +1603,7 @@
                 }
             } catch( guardException ) {
                 if ( guardException instanceof FSM.GuardException ) {
+                    FSM.Log.i(guardException.toString());
                     this.fireGuardPostCondition(firingTransition, msg, guardException);
                     firingTransition.firePreTransitionGuardedByPostCondition( msg, this );
                         this.fireStateChanged( target, firingTransition.initialState, msg );
@@ -1401,15 +1614,22 @@
                 }
             }
 
+            if ( callback ) {
+                callback(this);
+            }
 
-            if ( this.messages.length===0 ) {
-                this.transitioning = false;
-                if ( endCallback ) {
-                    endCallback();
-                }
-            } else {
-                // differ to next tick execution
-                setTimeout( this.consume.bind( this, endCallback ), 0 );
+            if ( this.isEmpty() ) {
+                var sess= this;
+                // the session is empty.
+                // notify main callback only.
+                this.messageQueues.forEach( function(mq) {
+                    mq.notify(sess);
+                });
+                this.messageQueues= [];
+            }
+
+            if ( this.messageQueues.length>0 ) {
+                this.__doConsume();
             }
 
         },
@@ -1583,17 +1803,23 @@
     /**
      * Create and initalize a fsmContext object.
      * This is the initial source of interaction with Automata engine.
+     *
+     * @type FSM.FSM
      */
     fsmContext= new FSM.FSMContext();
 
     /**
      * Register a FSM in Automata engine.
-     * @param fsmd {object} A FSM object definition.
+     * @param fsmd {FSMDefinition} A FSM object definition.
      */
     function registerFSM( fsmd ) {
-        var fsm= new FSM.FSM( fsmd.logic, fsmd.name );
+        var fsm= new FSM.FSM( fsmd.name );
 
         var i;
+
+        /**
+         * @type {Array<FSMDefinitionState|FSMDefinitionSubState>}
+         */
         var states_a= fsmd.state;
         var states= {};
         var initial_state= null;
@@ -1638,6 +1864,10 @@
             throw "No initial state defined.";
         }
 
+        /**
+         *
+         * @type {Array<FSMDefinitionTransition>}
+         */
         var transitions_a= fsmd.transition;
         for( i=0; i<transitions_a.length; i++ ) {
             var transition_def= transitions_a[i];
@@ -1696,11 +1926,11 @@
     /**
      * Create a given FSM session.
      * @param fsm <string> a FSM registered name.
+     * @param logic {object}
+     * @param callback {ConsumeCallback}
      */
-    function createSession( fsm ) {
-        var args= Array.prototype.slice.call(arguments);
-        args.shift();
-        return fsmContext.createSession( fsm, args );
+    function createSession( fsm, logic, callback ) {
+        return fsmContext.createSession( fsm, logic, callback );
     }
 
     function guardException( str ) {

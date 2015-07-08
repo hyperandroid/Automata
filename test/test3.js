@@ -70,7 +70,6 @@ var Logic= function() {
 context.registerFSM( {
 
     name    : "Test3",
-    logic   : Logic,
 
     state  : [
         {
@@ -120,7 +119,7 @@ context.registerFSM( {
     ]
 } );
 
-var session= context.createSession("Test3");
+var session= context.createSession("Test3", new Logic());
 
 session.addListener( context.newSessionListener( {
     contextCreated      : function( obj ) {    },

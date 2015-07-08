@@ -57,7 +57,6 @@ var Logic= function() {
 context.registerFSM( {
 
     name    : "Test1",
-    logic   : Logic,
 
     state  : [
         {
@@ -89,7 +88,12 @@ context.registerFSM( {
     ]
 } );
 
-var session= context.createSession("Test1");
-session.consume( { msgId: "ab" } );
-session.consume( { msgId: "bc" } );
+var session= context.createSession(
+    "Test1",
+    new Logic(),
+    function onCreateProcessEnds(session) {
+        session.consume( { msgId: "ab" } );
+        session.consume( { msgId: "bc" } );
+    }
+);
 
