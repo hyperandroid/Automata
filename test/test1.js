@@ -88,10 +88,11 @@ context.registerFSM( {
     ]
 } );
 
-var session= context.createSession(
-    "Test1",
-    new Logic(),
-    function onCreateProcessEnds(session) {
+var session= context.createSession({
+    fda: "Test1",
+    controller: new Logic()
+} );
+session.start( function onCreateProcessEnds(session) {
         session.consume( { msgId: "ab" } );
         session.consume( { msgId: "bc" } );
     }

@@ -119,19 +119,28 @@ context.registerFSM( {
     ]
 } );
 
-var session= context.createSession("Test3", new Logic());
+var session= context.createSession({
+    fda: "Test3",
+    controller: new Logic()
+});
 
 session.addListener( context.newSessionListener( {
-    contextCreated      : function( obj ) {    },
-    contextDestroyed    : function( obj ) {    },
     finalStateReached   : function( obj ) {
-        console.log("SessionListener finalStateReached");
+        console.log("SessionListener finalStateReached " );
     },
+
+    /**
+     *
+     * @param obj {FSM.SessionStateChangeEvent}
+     */
     stateChanged        : function( obj ) {
-        console.log("SessionListener stateChanged");
-    },
-    customEvent         : function( obj ) {    }
+        var ps= obj.prevState ? obj.prevState.getName() : "none";
+        console.log("SessionListener stateChanged "+ps+" --> "+obj.state.getName() );
+    }
 } ) );
+
+// start session.
+session.start();
 
 console.log("");
 console.log("Sent 'ab'");

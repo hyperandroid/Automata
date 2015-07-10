@@ -139,7 +139,13 @@ context.registerFSM( {
 
 } );
 
-var session= context.createSession("Test4", new Logic(), function(session) {
+var session= context.createSession({
+    fda : "Test4",
+    controller : new Logic()
+});
+
+session.start( function(session) {
+    
     session.consume({msgId: "ab"});
     session.consume({msgId: "bc"}, function () {
 

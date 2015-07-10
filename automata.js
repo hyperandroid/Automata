@@ -60,6 +60,50 @@
     FSM.TransitionMessage;
 
     /**
+     * @typedef {{ fda : string, controller : any }}
+     */
+    FSM.SessionCreationData;
+
+    /**
+     * typedef {{ session : FSM.Session }}
+     */
+    FSM.SessionFinalStateReachedEvent;
+
+    /**
+     * typedef {{ session : FSM.Session, context : FSM.SessionContext }}
+     */
+    FSM.SessionContextEvent;
+
+    /**
+     * typedef {{
+     *      session : FSM.Session,
+     *      context : FSM.SessionContext,
+     *      prevState : FSM.State,
+     *      state : FSM.State,
+     *      message : FSM.TransitionMessage
+     * }}
+     */
+    FSM.SessionStateChangeEvent;
+
+    /**
+     * typedef {{
+     *      session : FSM.Session,
+     *      transition : FSM.Transition,
+     *      message : FSM.TransitionMessage,
+     *      exception : string,
+     * }}
+     */
+    FSM.TransitionGuardEvent;
+
+    /**
+     * typedef {{
+     *      session : FSM.Session,
+     *      data : Object,
+     * }}
+     */
+    FSM.CustomEvent;
+
+    /**
      * @typedef {{
      *  timeout : number,
      *  event : FSM.TransitionMessage
@@ -413,19 +457,20 @@
 
         /**
          * Create a given FSM session.
-         * @param fromFSM {string} a FSM name. Must be previously registered by calling registerFSM function.
-         * @param logic {object} an object to be used as session data.
-         * @param callback {ConsumeCallback}
+         *
+         * @param sessionData {FSM.SessionCreationData}
+         *
          * @return {FSM.Session} an initialized session object.
          */
-        createSession : function( fromFSM, logic, callback ) {
+        createSession : function( sessionData  ) {
 
-            var fsm= this.registry[ fromFSM ];
+            var automata= sessionData.automata;
+            var fsm= this.registry[ automata ];
             if ( typeof fsm==="undefined" ) {
-                throw "FSM "+fromFSM+" does not exist.";
+                throw "FSM "+automata+" does not exist.";
             }
 
-            return fsm.createSession(logic, callback);
+            return fsm.createSession(sessionData.controller);
         },
 
         /**
@@ -598,7 +643,7 @@
         },
 
         /**
-         * Set this transition's pre guard function or function name form the logic object.
+         * Set this transition's pre guard function or function name form the controller object.
          *
          * @param m {TransitionCallback|string}
          */
@@ -616,7 +661,7 @@
         },
 
         /**
-         * Set this transition's post guard function or function name form the logic object.
+         * Set this transition's post guard function or function name form the controller object.
          *
          * @param m {TransitionCallback|string}
          */
@@ -1034,12 +1079,19 @@
          * this way for the sake of simplicity, but will probably change this semantics in the future,
          * (by adding an Automata with just one substate) which could cause backward incompatibilities.
          *
-         * @param sessionData {object} session factory initialization parameters.
-         * @param callback {ConsumeCallback}
+         * @param sessionController {object} session factory initialization parameters.
          */
-        createSession : function(sessionData, callback ) {
+        createSession : function(sessionController ) {
+            return new FSM.Session(this, sessionController );
+        },
 
-            var session= new FSM.Session( sessionData );
+        /**
+         *
+         * @param session {FSM.Session}
+         * @param callback {ConsumeCallback}
+         * @returns {FSM.Session}
+         */
+        startSession : function( session, callback ) {
             session.push(this);
             FSM.FSM.superclass.callOnEnter.call( this, session, null, null );
             session.consume( {
@@ -1223,9 +1275,19 @@
      *
      * @constructor
      *
-     * @param logic {object} an object coming from the FSM session factory object.
+     * @param fsm {FSM.FSM} a FDA.
+     * @param controller {object} an object coming from the FSM session factory object.
      */
-    FSM.Session= function( logic ) {
+    FSM.Session= function( fsm, controller ) {
+
+        /**
+         * FSM.FSM instance this sessio belongs to.
+         * @name _fda
+         * @memberOf FSM.Session.prototype
+         * @type {FSM.FSM}
+         * @private
+         */
+        this._fda=                  fsm;
 
         /**
          * Each sub-state accessed during the FSM execution will generated a new context object.
@@ -1262,11 +1324,11 @@
         /**
          * Session data. An object created form the FSM factory constructor function.
          *
-         * @name logic
+         * @name controller
          * @memberOf Session.prototype
          * @type {object} an object returned from the FSM factory constructor.
          */
-        this.logic=                 logic;
+        this.controller=            controller;
 
         /**
          * When a message is sent to a session, that message consumtion may fire new messages sent to the session.
@@ -1276,7 +1338,7 @@
          * @memberOf Session.prototype
          * @type {Array.<FSM.SessionMessageQueue>}
          */
-        this.messageQueues =             [];
+        this.messageQueues =        [];
 
         /**
          * Internal flag used to signal that 'consume' calls are in the context of a 'callMethod'.
@@ -1285,7 +1347,16 @@
          * @memberOf Session.prototype
          * @type {Array.<FSM.SessionMessageQueue>}
          */
-        this._inCallMethod = false;
+        this._inCallMethod =        false;
+
+        /**
+         * Internal flag for session state.
+         * @name _started
+         * @memberOf FSM.Session.prototype
+         * @type {boolean}
+         * @private
+         */
+        this._started =             false;
 
         return this;
     };
@@ -1383,32 +1454,57 @@
     FSM.Session.prototype= {
 
         /**
+         * Start a Session object.
+         * The session can be started only once.
+         * The reason to have a create and start functions, is that you can attach session listeners just after
+         * creation, and before it is started. Starting a session may imply state transitions. It is not reasonable
+         * to be able to attach observers after the inital transition executes and not before.
+         *
+         * @param callback {ConsumeCallback=}
+         */
+        start : function( callback ) {
+            if ( this._started ) {
+                throw "Session is already started.";
+            }
+
+            this._started= true;
+
+            this._fda.startSession( this, callback );
+        },
+
+        /**
          * Never call this method directly.
          * For a given Automata event triggering function (state.onEnter, state.onExit, transition.onPre/PostGuard,
-         * transition.onTransition), this method makes the appropriate call, either to the logic object, or to
+         * transition.onTransition), this method makes the appropriate call, either to the controller object, or to
          * the supplied callback function instead.
          * This method also sets an internal flag (_inCallMethod) which indicates that `session.consume` calls happening
          * inside a called method must not creat a message bucket, but queue messages in the current message bucket.
          */
         callMethod : function( /* method, argument1, ... */ ) {
-            var args= Array.prototype.slice.call( arguments );
-            var method= args.shift();
 
-            if ( null===method ) {  // just in case.
+
+            var args = Array.prototype.slice.call(arguments);
+            var method = args.shift();
+
+            if (null === method) {  // just in case.
                 return;
             }
 
-            args.splice(0,0,this);
+            args.splice(0, 0, this);
 
-            this._inCallMethod= true;
+            this._inCallMethod = true;
 
-            if ( typeof method==="function" ) {
-                method.apply( this.logic, args );
+            if (typeof method === "function") {
+                method.apply(this.controller, args);
             } else {
-                if ( this.logic && typeof this.logic[method]!=="undefined" ) {
-                    this.logic[ method ].apply( this.logic, args );
-                } else {
-                    // no method with given name on session object data.
+                if ( this.controller ) {
+
+                    if (this.controller && typeof this.controller[method] !== "undefined") {
+                        this.controller[method].apply(this.controller, args);
+                    } else {
+                        // no method with given name on session object data.
+                    }
+
                 }
             }
 
@@ -1446,7 +1542,7 @@
 
             this.sessionContextList.push( sc );
             this.fireContextCreated( sc );
-            this.fireStateChanged( sc, state, __InitialTransitionId );
+            this.fireStateChanged( sc, null, state, __InitialTransitionId );
         },
 
         /**
@@ -1585,9 +1681,10 @@
 
                     firingTransition.firePreTransition( msg, this );
 
+                        var currentState= this.getCurrentState();
                         var newState= firingTransition.finalState;
                         target.setCurrentState( newState );
-                        this.fireStateChanged( target, newState, msg );
+                        this.fireStateChanged( target, currentState, newState, msg );
 
                     firingTransition.firePostTransition( msg, this );
 
@@ -1606,7 +1703,7 @@
                     FSM.Log.i(guardException.toString());
                     this.fireGuardPostCondition(firingTransition, msg, guardException);
                     firingTransition.firePreTransitionGuardedByPostCondition( msg, this );
-                        this.fireStateChanged( target, firingTransition.initialState, msg );
+                        this.fireStateChanged( target, this.getCurrentState(), firingTransition.initialState, msg );
                     firingTransition.firePostTransitionGuardedByPostCondition( msg, this );
                 } else {
                     FSM.Log.e("An error ocurred: "+ guardException.toString());
@@ -1712,6 +1809,10 @@
             }
         },
 
+        /**
+         *
+         * @param sessionContext {FSM.SessionContext}
+         */
         fireContextCreated : function( sessionContext ) {
             for( var i=0; i<this.sessionListener.length; i++ ) {
                 this.sessionListener[i].contextCreated( {
@@ -1721,6 +1822,10 @@
             }
         },
 
+        /**
+         *
+         * @param sessionContext {FSM.SessionContext}
+         */
         fireContextRemoved : function( sessionContext ) {
             for( var i=0; i<this.sessionListener.length; i++ ) {
                 this.sessionListener[i].contextDestroyed( {
@@ -1730,44 +1835,63 @@
             }
         },
 
-        fireStateChanged : function( sessionContext, newState, msg ) {
+        /**
+         *
+         * @param sessionContext {FSM.SessionContext}
+         * @param newState {FSM.State}
+         * @param msg {FSM.State}
+         */
+        fireStateChanged : function( sessionContext, fromState, newState, msg ) {
             for( var i=0; i<this.sessionListener.length; i++ ) {
                 this.sessionListener[i].stateChanged( {
-                    session : this,
-                    context : sessionContext,
-                    state   : newState,
-                    message : msg
+                    session :   this,
+                    context :   sessionContext,
+                    prevState : fromState,
+                    state   :   newState,
+                    message :   msg
                 });
             }
         },
 
+        /**
+         *
+         * @param firingTransition {FSM.Transition}
+         * @param msg {FSM.TransitionMessage}
+         * @param guardException {FSM.GuardException}
+         */
         fireGuardPreCondition : function( firingTransition, msg, guardException ) {
             for( var i=0; i<this.sessionListener.length; i++ ) {
                 this.sessionListener[i].guardPreCondition( {
                     session     : this,
                     transition  : firingTransition,
                     message     : msg,
-                    exception   : guardException
+                    exception   : guardException.toString()
                 });
             }
         },
 
+        /**
+         *
+         * @param firingTransition {FSM.Transition}
+         * @param msg {FSM.TransitionMessage}
+         * @param guardException {FSM.GuardException}
+         */
         fireGuardPostCondition : function( firingTransition, msg, guardException ) {
             for( var i=0; i<this.sessionListener.length; i++ ) {
                 this.sessionListener[i].guardPostCondition( {
                     session     : this,
                     transition  : firingTransition,
                     message     : msg,
-                    exception   : guardException
+                    exception   : guardException.toString()
                 });
             }
         },
 
-        fireCustomEvent : function( msg ) {
+        fireCustomEvent : function( obj ) {
             for( var i=0; i<this.sessionListener.length; i++ ) {
                 this.sessionListener[i].customEvent( {
                     session: this,
-                    message: msg
+                    data: obj
                 });
             }
         }
@@ -1791,12 +1915,44 @@
      * @lend FSM.SessionListener.prototype
      */
     FSM.SessionListener.prototype= {
+
+        /**
+         * @param obj {FSM.SessionContextEvent}
+         */
         contextCreated      : function( obj ) {},
+
+        /**
+         * @param obj {FSM.SessionContextEvent}
+         */
         contextDestroyed    : function( obj ) {},
+
+        /**
+         * @param obj {FSM.SessionFinalStateReachedEvent}
+         */
         finalStateReached   : function( obj ) {},
+
+        /**
+         *
+         * @param obj {FSM.SessionStateChangeEvent}
+         */
         stateChanged        : function( obj ) {},
+
+        /**
+         *
+         * @param obj {FSM.CustomEvent}
+         */
         customEvent         : function( obj ) {},
+
+        /**
+         *
+         * @param obj {FSM.TransitionGuardEvent}
+         */
         guardPreCondition   : function( obj ) {},
+
+        /**
+         *
+         * @param obj {FSM.TransitionGuardEvent}
+         */
         guardPostCondition  : function( obj ) {}
     };
 
@@ -1925,12 +2081,12 @@
 
     /**
      * Create a given FSM session.
+     *
      * @param fsm <string> a FSM registered name.
-     * @param logic {object}
-     * @param callback {ConsumeCallback}
+     * @param controller {object}
      */
-    function createSession( fsm, logic, callback ) {
-        return fsmContext.createSession( fsm, logic, callback );
+    function createSession( fsm, controller ) {
+        return fsmContext.createSession( fsm, controller );
     }
 
     function guardException( str ) {

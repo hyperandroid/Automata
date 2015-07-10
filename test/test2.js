@@ -55,9 +55,16 @@ context.registerFSM( {
     ]
 } );
 
-var session1= context.createSession("Test2", null);
+var session1= context.createSession({
+    fda: "Test2"
+});
+session1.start();
 
-var session2= context.createSession("Test2", null);
+var session2= context.createSession({
+    fda : "Test2"
+} );
+
+session2.start();
 session2.consume( {msgId : "ab"} );
 
 /*

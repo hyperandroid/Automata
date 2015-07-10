@@ -18,6 +18,7 @@ declare module FSM {
         addProperty( key:string, value:any );
         removeProperty( key:string );
         getProperty( key:string ) : any;
+        start( callback:ConsumeCallback ) : void;
     }
 
     class GuardException {
@@ -54,7 +55,7 @@ declare module Automata {
 
     export function registerFSM( object:any );
     export function registerFDA( object:any );
-    export function createSession( fda_name : string, logic:any, callback?:FSM.ConsumeCallback ) :       FSM.Session;
+    export function createSession( fda_name : string, logic:any ) :       FSM.Session;
     export function newGuardException( message : string ) :    FSM.GuardException;
     export function newSessionListener( obj : any ) :          FSM.SessionListener;
 
