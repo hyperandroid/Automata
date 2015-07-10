@@ -26,13 +26,13 @@
 context= require("automata");
 
 
-var Logic= function() {
+var Controller= function() {
 
     this.count= 0;
 
     this.enter_b= function() {
         console.log("enter b");
-    }
+    };
 
     this.enter= function( session, state, transition, msg ) {
         console.log("enter "+state.toString());
@@ -70,7 +70,6 @@ var Logic= function() {
 context.registerFSM( {
 
     name    : "Test3",
-    logic   : Logic,
 
     state  : [
         {
@@ -120,19 +119,28 @@ context.registerFSM( {
     ]
 } );
 
-var session= context.createSession("Test3");
+var session= context.createSession({
+    fda: "Test3",
+    controller: new Controller()
+});
 
 session.addListener( context.newSessionListener( {
-    contextCreated      : function( obj ) {    },
-    contextDestroyed    : function( obj ) {    },
     finalStateReached   : function( obj ) {
-        console.log("SessionListener finalStateReached");
+        console.log("SessionListener finalStateReached " );
     },
+
+    /**
+     *
+     * @param obj {FSM.SessionStateChangeEvent}
+     */
     stateChanged        : function( obj ) {
-        console.log("SessionListener stateChanged");
-    },
-    customEvent         : function( obj ) {    }
+        var ps= obj.prevState ? obj.prevState.getName() : "none";
+        console.log("SessionListener stateChanged "+ps+" --> "+obj.state.getName() );
+    }
 } ) );
+
+// start session.
+session.start();
 
 console.log("");
 console.log("Sent 'ab'");

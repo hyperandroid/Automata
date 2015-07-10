@@ -15,7 +15,6 @@ context= require("automata");
 context.registerFSM( {
 
     name    : "Test2",
-    logic   : function() { return this; },
 
     state  : [
         {
@@ -56,9 +55,16 @@ context.registerFSM( {
     ]
 } );
 
-var session1= context.createSession("Test2");
+var session1= context.createSession({
+    fda: "Test2"
+});
+session1.start();
 
-var session2= context.createSession("Test2");
+var session2= context.createSession({
+    fda : "Test2"
+} );
+
+session2.start();
 session2.consume( {msgId : "ab"} );
 
 /*
