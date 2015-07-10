@@ -1,8 +1,8 @@
-#Automata - A finite state machine framework.
+# Automata - A finite state machine framework.
 
 Current state of automata is version 2.x.x, which is not backward compatible with 1.x.x.
 
-##Description
+## Description
 
 Automata is a formal finite state machine (FDA) framework.
 It aims at offering a totally decoupled management of logic and data storage.
@@ -17,7 +17,7 @@ finite state machine framework like
 * FDA Session as message chroreographer
 * Asynchronous execution
 
-##How to
+## How to
 
 Automata works on browsers or Node and has no dependencies.
 
@@ -53,7 +53,7 @@ declare module Automata {
 }
 ```
 
-##How it works
+## How it works
 
 In Automata, FDA (finite deterministic automaton) are declaratively defined. It is contstrained to `FSMDefinition`
 object.
@@ -323,7 +323,7 @@ function( session, state, transition, msg );
 
 In any case, those functions will be automatically called if they exist in the logic object.
 
-##Guards
+## Guards
 
 Guards prevent a transition from being fired. In Automata there are two available guard points out of the box.
 One on preTransitionFire and the other on postTransitionFire.
@@ -397,7 +397,7 @@ endif
  * AB_postGuard
 
 
-##Timed transitions
+## Timed transitions
 
 Automata offers out of the box timed transitions by defining an **onTimer** block in a FDA definition. For example:
 
@@ -427,7 +427,7 @@ FDA session. The timer is handled automatically, and set/canceled on state enter
 The timers are checked every 200 milliseconds by the unique instance of FSMContext object. Thus, if you need to have
 less than 200ms timers, you may want to change TIMER_CHECK_RESOLUTION in the automata.js file.
 
-##SubStates
+## SubStates
 
 Automata allows to nest as much as needed substates. In fact, by defining a single FDA, the engine stacks two levels,
 one for the FDA, and the other, initially for the FDA's initial state. To define different levels, you must
@@ -463,7 +463,7 @@ Then, the transition section will identify this FDA as a substate by its name, S
  stacked level, a FDA.Context object is created. A context object is just a holder for the current state for each 
  nesting level.
 
-##Transition from Substates
+## Transition from Substates
 
 The way in which Automata manages state changes is made hierarchycally. That means, the engine will try to find a
 suitable transition for a given incoming message regardless of its nesting level.
@@ -503,7 +503,7 @@ Additionally, this session will be finished since S3 is a final State (this nest
 and so it is ROOT, which causes the session to be emptied.
 
 
-##FDA listeners
+## FDA listeners
 
 Any FDA session activity can be monitored by adding a listener.
 For example:
@@ -547,7 +547,7 @@ The obj parameter for each listener object function contains the following param
 * **postGuard**: FSM.TransitionGuardEvent
 * **customEvent**: FSM.CustomEvent
 
-##Custom events
+## Custom events
 
 The preferred way for sending custom events will be by calling:
 ```javascript
@@ -561,9 +561,9 @@ This method will be notified on the method
 customEvent         : function( ev : FSM.CustomEvent ) {
 ```
 
-#Samples
+# Samples
 
-##Sample 1 - Simple FDA
+## Sample 1 - Simple FDA
 
 This sample shows how to define common FDA session callback points. Either on logic object, or by defining a callback.
 In either case, **this** is defined to be the session's logic object.
@@ -658,7 +658,7 @@ session.start( function onStartProcessEnds(session) {
 
 ```
 
-##Sample 2 - FDA with timed events
+## Sample 2 - FDA with timed events
 
 This sample show how to define a timed transition. Note this example has no FDA Controller.
 
