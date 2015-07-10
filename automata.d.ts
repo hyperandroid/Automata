@@ -1,5 +1,39 @@
 declare module FSM {
 
+    export interface FSMDefinitionStateTimer {
+        timeout : number;
+        event : FSM.TransitionMessage;
+    }
+
+    export interface FSMDefinitionState {
+        name : string;
+        initial : boolean;
+        onTimer : FSMDefinitionStateTimer;
+        onEnter : string|FSM.StateCallback;
+        onExit : string|StateCallback;
+    }
+
+    export interface FSMDefinitionSubState {
+        name : string;
+    }
+
+    export interface FSMDefinitionTransition {
+        event :string;
+        from : string;
+        to : string;
+        onTransition : string|TransitionCallback;
+        onPreGuard : string|TransitionCallback;
+        onPostGuard : string|TransitionCallback;
+    }
+
+    export interface FSMDefinition {
+        name : string;
+        state : FSMDefinitionState[] | FSMDefinitionSubState[];
+        transition : FSMDefinitionTransition[];
+        onEnter : string | StateCallback;
+        onExit : string | StateCallback;
+    }
+
     export interface TransitionMessage {
         msgId : string;
         data? : any;
@@ -7,6 +41,14 @@ declare module FSM {
 
     export interface ConsumeCallback {
         (session:Session):void
+    }
+
+    export interface TransitionCallback {
+        (state:State, transition:Transition, message:TransitionMessage):void;
+    }
+
+    export interface StateCallback {
+        (state:State, transition:Transition, message:TransitionMessage):void;
     }
 
     class Session {
@@ -53,10 +95,10 @@ declare module FSM {
 
 declare module Automata {
 
-    export function registerFSM( object:any );
-    export function registerFDA( object:any );
-    export function createSession( fda_name : string, controller:any ) :       FSM.Session;
-    export function newGuardException( message : string ) :    FSM.GuardException;
-    export function newSessionListener( obj : any ) :          FSM.SessionListener;
+    export function registerFSM( object:FSM.FSMDefinition );
+    export function registerFDA( object:FSM.FSMDefinition );
+    export function createSession( fda_name : string, controller : any ) : FSM.Session;
+    export function newGuardException( message : string ) : FSM.GuardException;
+    export function newSessionListener( obj : any ) : FSM.SessionListener;
 
 }

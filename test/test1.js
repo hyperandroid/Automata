@@ -15,7 +15,7 @@
 
 context= require("automata");
 
-var Logic= function() {
+var Controller= function() {
 
     this.a_enter= function( session, state, transition, msg ) {
         console.log("a enter "+state.toString());
@@ -90,9 +90,9 @@ context.registerFSM( {
 
 var session= context.createSession({
     fda: "Test1",
-    controller: new Logic()
+    controller: new Controller()
 } );
-session.start( function onCreateProcessEnds(session) {
+session.start( function onStartProcessEnds(session) {
         session.consume( { msgId: "ab" } );
         session.consume( { msgId: "bc" } );
     }

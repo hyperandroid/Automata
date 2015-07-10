@@ -25,14 +25,14 @@
      * @callback TransitionCallback
      * @param state {FSM.State}
      * @param transition {FSM.Transition}
-     * @param message {object}
+     * @param message {FSM.TransitionMessage}
      */
 
     /**
      * @callback StateCallback
      * @param state {FSM.State}
      * @param transition {FSM.Transition}
-     * @param message {object}
+     * @param message {FSM.TransitionMessage}
      */
 
 
@@ -60,7 +60,7 @@
     FSM.TransitionMessage;
 
     /**
-     * @typedef {{ fda : string, controller : any }}
+     * @typedef {{ fda : string, controller? : Object }}
      */
     FSM.SessionCreationData;
 

@@ -26,13 +26,13 @@
 context= require("automata");
 
 
-var Logic= function() {
+var Controller= function() {
 
     this.count= 0;
 
     this.enter_b= function() {
         console.log("enter b");
-    }
+    };
 
     this.enter= function( session, state, transition, msg ) {
         console.log("enter "+state.toString());
@@ -121,7 +121,7 @@ context.registerFSM( {
 
 var session= context.createSession({
     fda: "Test3",
-    controller: new Logic()
+    controller: new Controller()
 });
 
 session.addListener( context.newSessionListener( {
