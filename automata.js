@@ -65,17 +65,17 @@
     FSM.SessionCreationData;
 
     /**
-     * typedef {{ session : FSM.Session }}
+     * @typedef {{ session : FSM.Session }}
      */
     FSM.SessionFinalStateReachedEvent;
 
     /**
-     * typedef {{ session : FSM.Session, context : FSM.SessionContext }}
+     * @typedef {{ session : FSM.Session, context : FSM.SessionContext }}
      */
     FSM.SessionContextEvent;
 
     /**
-     * typedef {{
+     * @typedef {{
      *      session : FSM.Session,
      *      context : FSM.SessionContext,
      *      prevState : FSM.State,
@@ -86,7 +86,7 @@
     FSM.SessionStateChangeEvent;
 
     /**
-     * typedef {{
+     * @typedef {{
      *      session : FSM.Session,
      *      transition : FSM.Transition,
      *      message : FSM.TransitionMessage,
@@ -96,7 +96,7 @@
     FSM.TransitionGuardEvent;
 
     /**
-     * typedef {{
+     * @typedef {{
      *      session : FSM.Session,
      *      data : Object,
      * }}
@@ -464,7 +464,7 @@
          */
         createSession : function( sessionData  ) {
 
-            var automata= sessionData.automata;
+            var automata= sessionData.fda;
             var fsm= this.registry[ automata ];
             if ( typeof fsm==="undefined" ) {
                 throw "FSM "+automata+" does not exist.";
@@ -1542,7 +1542,7 @@
 
             this.sessionContextList.push( sc );
             this.fireContextCreated( sc );
-            this.fireStateChanged( sc, null, state, __InitialTransitionId );
+            this.fireStateChanged( sc, null, state, {msgId : __InitialTransitionId} );
         },
 
         /**
@@ -1630,7 +1630,15 @@
              * @type FSM.MessageCallbackTuple
              */
             var pair= queue.shift();
+
+            /**
+             * @type {FSM.TransitionMessage}
+             */
             var msg= pair.message;
+
+            /**
+             * @type {ConsumeCallback}
+             */
             var callback= pair.callback;
 
             var firingTransition= null; // FSM.Transition
@@ -1838,8 +1846,9 @@
         /**
          *
          * @param sessionContext {FSM.SessionContext}
+         * @param fromState {FSM.State}
          * @param newState {FSM.State}
-         * @param msg {FSM.State}
+         * @param msg {FSM.TransitionMessage}
          */
         fireStateChanged : function( sessionContext, fromState, newState, msg ) {
             for( var i=0; i<this.sessionListener.length; i++ ) {
@@ -2082,11 +2091,10 @@
     /**
      * Create a given FSM session.
      *
-     * @param fsm <string> a FSM registered name.
-     * @param controller {object}
+     * @param data {FSM.SessionCreationData}
      */
-    function createSession( fsm, controller ) {
-        return fsmContext.createSession( fsm, controller );
+    function createSession( data ) {
+        return fsmContext.createSession( data );
     }
 
     function guardException( str ) {

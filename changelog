@@ -5,6 +5,8 @@
 * Fully asynchronous execution.
 * Added 'consume message' callback.
 * Logic object does not belong to the automata defintion anymore.
+* Logic object concept is deprecated in favor of session controller.
+* Session lifecycle has been modified: create, start, end.
 
 07-02-2015 *1.1.1*
 ------------------

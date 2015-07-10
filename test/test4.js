@@ -145,7 +145,7 @@ var session= context.createSession({
 });
 
 session.start( function(session) {
-    
+
     session.consume({msgId: "ab"});
     session.consume({msgId: "bc"}, function () {
 

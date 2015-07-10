@@ -55,7 +55,7 @@ declare module Automata {
 
     export function registerFSM( object:any );
     export function registerFDA( object:any );
-    export function createSession( fda_name : string, logic:any ) :       FSM.Session;
+    export function createSession( fda_name : string, controller:any ) :       FSM.Session;
     export function newGuardException( message : string ) :    FSM.GuardException;
     export function newSessionListener( obj : any ) :          FSM.SessionListener;
 
