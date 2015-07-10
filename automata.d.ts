@@ -7,10 +7,10 @@ declare module FSM {
 
     export interface FSMDefinitionState {
         name : string;
-        initial : boolean;
-        onTimer : FSMDefinitionStateTimer;
-        onEnter : string|FSM.StateCallback;
-        onExit : string|StateCallback;
+        initial? : boolean;
+        onTimer? : FSMDefinitionStateTimer;
+        onEnter? : string|FSM.StateCallback;
+        onExit? : string|StateCallback;
     }
 
     export interface FSMDefinitionSubState {
@@ -21,17 +21,17 @@ declare module FSM {
         event :string;
         from : string;
         to : string;
-        onTransition : string|TransitionCallback;
-        onPreGuard : string|TransitionCallback;
-        onPostGuard : string|TransitionCallback;
+        onTransition? : string|TransitionCallback;
+        onPreGuard? : string|TransitionCallback;
+        onPostGuard? : string|TransitionCallback;
     }
 
     export interface FSMDefinition {
         name : string;
-        state : FSMDefinitionState[] | FSMDefinitionSubState[];
+        state : (FSMDefinitionSubState|FSMDefinitionState)[];
         transition : FSMDefinitionTransition[];
-        onEnter : string | StateCallback;
-        onExit : string | StateCallback;
+        onEnter? : string | StateCallback;
+        onExit? : string | StateCallback;
     }
 
     export interface TransitionMessage {
