@@ -51,6 +51,41 @@ declare module FSM {
         (state:State, transition:Transition, message:TransitionMessage):void;
     }
 
+
+    export interface SessionFinalStateReachedEvent {
+        session : FSM.Session;
+    }
+
+    export interface SessionContextEvent {
+        session : FSM.Session;
+        context : FSM.SessionContext;
+    }
+
+    export interface SessionStateChangeEvent {
+        session : FSM.Session;
+        context : FSM.SessionContext;
+        prevState : FSM.State;
+        state : FSM.State;
+        message : FSM.TransitionMessage;
+    }
+
+    export interface TransitionGuardEvent {
+        session : FSM.Session;
+        transition : FSM.Transition;
+        message : FSM.TransitionMessage;
+        exception : string;
+    }
+
+    export interface SessionCustomEvent {
+        session : FSM.Session;
+        data : any;
+    }
+
+    class SessionContext {
+        getState() : FSM.State;
+        printStackTrace() : void;
+    }
+
     class Session {
 
         consume( message : TransitionMessage, consumeCallback? : FSM.ConsumeCallback  );
@@ -61,6 +96,7 @@ declare module FSM {
         removeProperty( key:string );
         getProperty( key:string ) : any;
         start( callback:ConsumeCallback ) : void;
+        fireCustomEvent( e:any ) : void;
     }
 
     class GuardException {
@@ -70,13 +106,13 @@ declare module FSM {
     }
 
     class SessionListener {
-        contextCreated( obj );
-        contextDestroyed( obj );
-        finalStateReached( obj );
-        stateChanged( obj );
-        customEvent( obj );
-        guardPreCondition( obj );
-        guardPostCondition( obj );
+        contextCreated( e:SessionContextEvent );
+        contextDestroyed( e:SessionContextEvent );
+        finalStateReached( e:SessionFinalStateReachedEvent );
+        stateChanged( e:SessionStateChangeEvent );
+        customEvent( e:SessionCustomEvent );
+        guardPreCondition( e:TransitionGuardEvent );
+        guardPostCondition( e:TransitionGuardEvent );
     }
 
     class State {
@@ -86,6 +122,7 @@ declare module FSM {
 
     class Transition {
         getEvent() : string;
+        getStartState() : FSM.State;
     }
 
     export interface StateTransitionCallback {

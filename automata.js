@@ -101,7 +101,7 @@
      *      data : Object,
      * }}
      */
-    FSM.CustomEvent;
+    FSM.SessionCustomEvent;
 
     /**
      * @typedef {{
@@ -634,6 +634,9 @@
      */
     FSM.Transition.prototype= {
 
+        getStartState : function() {
+            return this.initialState;
+        },
 
         /**
          * @return {string} transition's firing event.
@@ -1179,8 +1182,6 @@
         printStackTrace : function() {
             FSM.Log.d("  "+this.currentState.getName());
         }
-
-
     };
 
     /**
@@ -1896,6 +1897,10 @@
             }
         },
 
+        /**
+         *
+         * @param obj {Object}
+         */
         fireCustomEvent : function( obj ) {
             for( var i=0; i<this.sessionListener.length; i++ ) {
                 this.sessionListener[i].customEvent( {
@@ -1948,7 +1953,7 @@
 
         /**
          *
-         * @param obj {FSM.CustomEvent}
+         * @param obj {FSM.SessionCustomEvent}
          */
         customEvent         : function( obj ) {},
 
