@@ -80,7 +80,8 @@
      *      context : FSM.SessionContext,
      *      prevState : FSM.State,
      *      state : FSM.State,
-     *      message : FSM.TransitionMessage
+     *      message : FSM.TransitionMessage,
+     *      isUserMessage : boolean
      * }}
      */
     FSM.SessionStateChangeEvent;
@@ -1396,6 +1397,8 @@
          */
         this._messages = [];
 
+        this._userMessage = msg;
+
         this.push( msg );
 
         return this;
@@ -1405,6 +1408,10 @@
      * @lend FSM.SessionMessageQueue.prototype
      */
     FSM.SessionMessageQueue.prototype = {
+
+        isUserMessage : function( msg ) {
+            return msg===this._userMessage;
+        },
 
         /**
          *
@@ -1616,8 +1623,8 @@
             // trivial exit
             if ( queue.getNumMessages()===0 ) {
 
-                queue.notify( this );
                 this.messageQueues.shift();
+                queue.notify( this );
                 if ( this.messageQueues.length>0 ) {
                     this.__doConsume();
                 }
@@ -1852,13 +1859,18 @@
          * @param msg {FSM.TransitionMessage}
          */
         fireStateChanged : function( sessionContext, fromState, newState, msg ) {
+
+            // FDA, dont have message queues.
+            var ium= this.messageQueues.length && this.messageQueues[0].isUserMessage(msg);
+
             for( var i=0; i<this.sessionListener.length; i++ ) {
                 this.sessionListener[i].stateChanged( {
-                    session :   this,
-                    context :   sessionContext,
-                    prevState : fromState,
-                    state   :   newState,
-                    message :   msg
+                    session         :   this,
+                    context         :   sessionContext,
+                    prevState       :   fromState,
+                    state           :   newState,
+                    message         :   msg,
+                    isUserMessage   :  ium
                 });
             }
         },
@@ -1967,7 +1979,13 @@
          *
          * @param obj {FSM.TransitionGuardEvent}
          */
-        guardPostCondition  : function( obj ) {}
+        guardPostCondition  : function( obj ) {},
+
+        /**
+         *
+         * @param obj {FSM.SessionStateChangeEvent}
+         */
+        userStateChange : function( obj ) {}
     };
 
     /**

@@ -67,6 +67,7 @@ declare module FSM {
         prevState : FSM.State;
         state : FSM.State;
         message : FSM.TransitionMessage;
+        isUserMessage : boolean;
     }
 
     export interface TransitionGuardEvent {
