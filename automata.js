@@ -859,10 +859,26 @@
         return this;
     };
 
+    FSM.State.deserialize = function( obj, parentState ) {
+
+        if ( null==parentState ) {
+            return fsmContext.getFSM( obj.name );
+        }
+
+        return parentState.getStateByName( obj.name );
+    };
+
     /**
      * @lend FSM.State.prototype
      */
     FSM.State.prototype= {
+
+        serialize : function() {
+            return {
+                "class" : "State",
+                "name"  : this.name
+            };
+        },
 
         /**
          * Get this state name.
@@ -1031,6 +1047,12 @@
          */
         this.initialState=          null;
 
+        /**
+         * FSM declarative description.
+         * @type {FSM.FSMState[]}
+         */
+        this.states =        null;
+
         return this;
     };
 
@@ -1038,6 +1060,12 @@
      * @lend FSM.FSM.prototype
      */
     FSM.FSM.prototype= {
+
+        getStateByName : function( n ) {
+
+            var s= this.states[n];
+            return s ? s : null;
+        },
 
         /**
          * Initialize a Finite State Machine.
@@ -1138,6 +1166,25 @@
     };
 
     /**
+     *
+     * @param obj {object}
+     * @param parentFDA {FSM.State}
+     */
+    FSM.SessionContext.deserialize= function( obj, parentFDA ) {
+
+        if ( obj && obj["class"] && obj["class"]==="SessionContext" ) {
+            var s= FSM.State.deserialize( obj.state, parentFDA );
+            if ( s ) {
+                return new FSM.SessionContext(s);
+            }
+
+            throw "Unknown state '"+obj.state.name+"' in FDA "+parentFDA.getName();
+        }
+
+        throw "SessionContext invalid data.";
+    };
+
+    /**
      * @lend FSM.SessionContext.prototype
      */
     FSM.SessionContext.prototype= {
@@ -1182,6 +1229,13 @@
          */
         printStackTrace : function() {
             FSM.Log.d("  "+this.currentState.getName());
+        },
+
+        serialize : function() {
+            return {
+                "class" : "SessionContext",
+                "state" : this.currentState.serialize()
+            }
         }
     };
 
@@ -1457,9 +1511,55 @@
     };
 
     /**
+     * @param obj
+     */
+    FSM.Session.deserialize= function( obj, controllerDeserializer ) {
+
+        if ( obj && obj["class"] && obj["class"]==="Session" ) {
+
+            var fsm = fsmContext.getFSM(obj.fda);
+            if (!fsm) {
+                throw "Unknown FSM '" + obj.fda + "'";
+            }
+            var s = new FSM.Session(fsm);
+            s._started= obj.started;
+
+            s.sessionContextList= [];
+            var prevState= null;
+            obj.sessionContextList.forEach( function(scdef) {
+                var ns= FSM.SessionContext.deserialize( scdef, prevState );
+                s.sessionContextList.push( ns );
+                prevState= ns.getState();
+            });
+
+            s.controller= controllerDeserializer( obj.controller );
+
+            return s;
+        }
+
+        throw "Invalid session object definition.";
+    };
+
+    /**
      * @lend FSM.Session.prototype
      */
     FSM.Session.prototype= {
+
+        serialize : function() {
+            var ret= {
+                "class" : "Session",
+                "fda" : this._fda.getName(),
+                "sessionContextList" : [],
+                "started" : this._started,
+                "controller" : this.controller.serialize ? this.controller.serialize() : ""
+            };
+
+            this.sessionContextList.forEach( function( sc ) {
+                ret["sessionContextList"].push( sc.serialize() );
+            });
+
+            return ret;
+        },
 
         /**
          * Start a Session object.
@@ -2109,6 +2209,8 @@
 
         fsm.initialize( initial_state );
         fsmContext.registerFSM( fsm.name, fsm );
+
+        fsm.states = states;
     }
 
     /**
@@ -2142,7 +2244,8 @@
         registerFDA         : registerFSM,
         createSession       : createSession,
         newGuardException   : guardException,
-        newSessionListener  : newSessionListener
+        newSessionListener  : newSessionListener,
+        deserializeSession  : FSM.Session.deserialize
     };
 
     if (typeof define!=='undefined' && define.amd) {              // AMD / RequireJS

@@ -138,5 +138,6 @@ declare module Automata {
     export function createSession( fda_name : string, controller : any ) : FSM.Session;
     export function newGuardException( message : string ) : FSM.GuardException;
     export function newSessionListener( obj : any ) : FSM.SessionListener;
+    export function deserializeSession( obj : any, controllerDeserializerFunction ) : FSM.Session;
 
 }
