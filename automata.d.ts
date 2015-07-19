@@ -34,6 +34,11 @@ declare module FSM {
         onExit? : string | StateCallback;
     }
 
+    export interface SessionCreationData {
+        fda : string;
+        controller? : any;
+    }
+
     export interface TransitionMessage {
         msgId : string;
         data? : any;
@@ -98,6 +103,7 @@ declare module FSM {
         getProperty( key:string ) : any;
         start( callback:ConsumeCallback ) : void;
         fireCustomEvent( e:any ) : void;
+        serialize() : any;
     }
 
     class GuardException {
@@ -131,11 +137,11 @@ declare module FSM {
     }
 }
 
-declare module Automata {
+declare module "automata" {
 
     export function registerFSM( object:FSM.FSMDefinition );
     export function registerFDA( object:FSM.FSMDefinition );
-    export function createSession( fda_name : string, controller : any ) : FSM.Session;
+    export function createSession( data:FSM.SessionCreationData ) : FSM.Session;
     export function newGuardException( message : string ) : FSM.GuardException;
     export function newSessionListener( obj : any ) : FSM.SessionListener;
     export function deserializeSession( obj : any, controllerDeserializerFunction ) : FSM.Session;
