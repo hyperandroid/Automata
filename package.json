@@ -1,7 +1,7 @@
 {
   "name": "automata",
   "version": "2.1.0",
-  "main": "automata",
+  "main": "./build/src/automata.js",
   "keywords": [
     "DFA",
     "state machine",
@@ -19,6 +19,7 @@
   "engines": {
     "node": "*"
   },
+  "typings": "./build/src/automata.d.ts",
   "license": "MIT",
   "homepage": "http://github.com/hyperandroid/automata"
 }

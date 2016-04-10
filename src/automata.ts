@@ -8,14 +8,18 @@ export interface Message {
 }
 
 export type GenericMap<T> = { [name : string] : T };
-
 export type Action = <T>(session: Session<T>, message : Message) => T;
-export type Guard = <T>(session: Session<T>, message : Message) => boolean;
+
+export interface AutoTransitionJson {
+    millis : number,
+    data?  : any;
+}
 
 export interface TransitionJson {
-    from :  string;
-    to :    string;
-    event : string;
+    from :      string;
+    to :        string;
+    event :     string;
+    timeout? :  AutoTransitionJson
 }
 
 export interface FSMJson {
@@ -54,6 +58,10 @@ export class SessionConsumeMessagePromise<T> {
 export class FSMRegistry {
     
     static _fsm : GenericMap<FSM> = {};
+
+    static FSMFromId( id : string ) : FSM {
+        return FSMRegistry._fsm[id];
+    }
     
     static register( fsm_json : FSMJson ) {
         try {
@@ -93,6 +101,13 @@ export class FSMRegistry {
     }
 }
 
+export interface StateAutoTransitionElement {
+
+    millis : number;
+    message?: Message;
+    timer_id? : number;
+}
+
 export class State {
 
     _name :                     string;
@@ -100,6 +115,7 @@ export class State {
     _exit_transitions_count :   number;
     _enter_action :             Action;
     _exit_action :              Action;
+    _auto_transition :          StateAutoTransitionElement[];
     
     constructor( name : string ) {
         this._name = name;
@@ -107,6 +123,7 @@ export class State {
         this._exit_transitions_count = 0;
         this._enter_action = null;
         this._exit_action = null;
+        this._auto_transition = [];
     }
     
     transitionForMessage( m : Message ) {
@@ -127,6 +144,8 @@ export class State {
         if ( this._exit_action!==null ) {
             this._exit_action( s, m );
         }
+
+        this.__stopTimeoutTransitionElements();
         
         return this._exit_action!==null;
     }
@@ -135,9 +154,42 @@ export class State {
         if ( this._enter_action!==null ) {
             this._enter_action( s, m);
         }
+
+        this.__startTimeoutTransitionElements(s);
         
         return this._enter_action!==null;
-    }    
+    }
+
+    __startTimeoutTransitionElements<T>( s : Session<T> ) {
+        this._auto_transition.forEach( (sate) : void => {
+            sate.timer_id = setTimeout(
+                this.__notifyTimeoutEvent.bind(this,s, sate.message),
+                sate.millis
+            );
+        });
+    }
+
+    __stopTimeoutTransitionElements() {
+        this._auto_transition.forEach( (sate) : void => {
+            if ( sate.timer_id !==-1 ) {
+                clearTimeout(sate.timer_id);
+                sate.timer_id = -1;
+            }
+        });
+    }
+
+    __notifyTimeoutEvent<T>( s : Session<T>, m : Message ) {
+        this.__stopTimeoutTransitionElements();
+        s.dispatchMessage( m );
+    }
+
+    __setTimeoutTransitionInfo( millis : number, message : Message ) {
+        this._auto_transition.push( {
+            millis : millis,
+            message : message,
+            timer_id : -1
+        } );
+    }
     
     isFinal() : boolean {
         return this._exit_transitions_count === 0;
@@ -147,7 +199,6 @@ export class State {
         return this._name;
     }
 }
-
 
 export class FSM extends State {
     
@@ -168,7 +219,22 @@ export class FSM extends State {
     
     get initial_state() {
         return this._initial_state;
-    } 
+    }
+
+    serialize() : FSMJson {
+        return {
+            name :          this._name,
+            state :         this._states.map( st => st._name ),
+            initial_state : this._initial_state._name,
+            transition :    this._transitions.map( tr => {
+                return {
+                    event: tr._event,
+                    from: tr._initial_state._name,
+                    to: tr._final_state._name
+                }
+            })
+        };
+    }
     
     __createStates( states : string[], initial : string ) {
 
@@ -235,6 +301,14 @@ export class FSM extends State {
             }
             
             this._transitions.push( new Transition( f, t, e ) );
+
+            // auto transition behavior.
+            if ( typeof v.timeout!=="undefined" ) {
+                f.__setTimeoutTransitionInfo( v.timeout.millis, {
+                    msgId : e,
+                    data  : v.timeout.data
+                } );
+            }
         });
     }
 }
@@ -271,6 +345,11 @@ export class Transition {
     }
 }
 
+export interface SerializedSessionContext {
+    current_state : string;
+    prev_state : string;
+}
+
 export class SessionContext {
     
     _current_state :    State;
@@ -280,7 +359,14 @@ export class SessionContext {
         this._current_state = c;
         this._prev_state = p;
     }
-    
+
+    serialize() : SerializedSessionContext {
+        return {
+            current_state : this._current_state._name,
+            prev_state : this._prev_state ? this._prev_state._name : "",
+        };
+    }
+
     get current_state() : State {
         return this._current_state;
     }
@@ -295,6 +381,10 @@ export class SessionContext {
     
     prevStateName() : string {
         return this._prev_state && this._prev_state.name;
+    }
+
+    printStackTrace() {
+        console.log("  "+this._current_state.name );
     }
 }
 
@@ -314,12 +404,20 @@ export interface SessionObserver<T> {
     stateChanged(       e : SessionObserverEvent<T> ) : void;
 }
 
+export interface SerializedSession {
+    ended : boolean,
+    controller : any,
+    states : SerializedSessionContext[],
+    fsm : FSMJson
+}
+
 export class Session<T> {
     _fsm :                  FSM;
     _session_controller :   T;
     _states :               SessionContext[];
-    _messages_controller :  SessionMessagesController<T>;
     _ended :                boolean;
+    _messages_controller :  SessionMessagesController<T>;
+
     _observers :            SessionObserver<T>[];
     _sessionEndPromise :    SessionConsumeMessagePromise<T>;
     
@@ -344,6 +442,53 @@ export class Session<T> {
         
         return promise;
     }
+
+    __serializeController() : any {
+        var sc = <any>this._session_controller;
+        if ( sc.serialize && typeof sc.serialize==="function" ) {
+            return sc.serialize();
+        }
+
+        return {};
+    }
+
+    serialize() : SerializedSession {
+
+        const serializedController = this.__serializeController();
+
+        return {
+            ended :     this._ended,
+            fsm :       this._fsm.serialize(),
+            states :    this._states.map( st => st.serialize() ),
+            controller: serializedController
+        };
+    }
+
+    static deserialize<T,U>( s : SerializedSession, deserializer : (sg : U) => T ) : Session<T> {
+
+        const controller : T = deserializer( s.controller );
+        const session : Session<T> = new Session( controller );
+        session.__deserialize( s );
+
+        return session;
+    }
+
+    __deserialize( s : SerializedSession ) {
+
+        FSMRegistry.register( s.fsm );
+        this._fsm= FSMRegistry.FSMFromId( s.fsm.name );
+        this._ended = s.ended;
+        this._states = s.states.map( e => {
+            const c : State = e.current_state === s.fsm.name ?
+                this._fsm :
+                this._fsm._states.filter( s => s._name===e.current_state )[0];
+            const p : State = e.prev_state === "" ?
+                null :
+                this._fsm._states.filter( s => s._name===e.prev_state )[0];
+
+            return new SessionContext(c, p)
+        } );
+    }
     
     addObserver( o : SessionObserver<T> ) {
         this._observers.push( o );
@@ -352,7 +497,7 @@ export class Session<T> {
     /**
      * User side message.
      */
-    dispatchMessage( m : Message ) : SessionConsumeMessagePromise<T> {
+    dispatchMessage<U extends Message>( m : U ) : SessionConsumeMessagePromise<T> {
         if ( this._ended ) {
             throw "Session is ended.";
         }
@@ -405,8 +550,8 @@ export class Session<T> {
         }        
     }    
     
-    __invoke( method : string, m : Message ) {
-        (<any>this._session_controller)[method] && (<any>this._session_controller)[method]( this, this.current_state_name, m );
+    __invoke( method : string, m : Message ) : any {
+        return (<any>this._session_controller)[method] && (<any>this._session_controller)[method]( this, this.current_state_name, m );
     }
     
     __consumeMessageForFSM( m : Message ) {
@@ -496,26 +641,20 @@ export class Session<T> {
 
     __consumeMessageForState( m : Message ) {
         
-        if ( this._ended ) {
-            throw "Session is ended. Message '"+m.msgId+"' is discarded.";
-        }
-        
-        const state_for_message : State = this.__findStateWithTransitionForMessage( m );
-        
-        if ( null!==state_for_message ) {
-            //try {
-                this.__processMessage( state_for_message, m );
-            //} catch( e ) {
-            //
-            //    console.log(
-            //            "consume for message '"
-            //                    + m.msgId
-            //                    + "' got exception: "
-            //                    + e );
-            //}
-            
+        if ( !this._ended ) {
+            const state_for_message:State = this.__findStateWithTransitionForMessage(m);
+
+            if (null !== state_for_message) {
+                try {
+                    this.__processMessage(state_for_message, m);
+                } catch (e) {
+                    console.error(`consume for message '${m.msgId}' got exception: `, e);
+                }
+            } else {
+                console.error(`No message: '${m.msgId}' for state: '${this.current_state_name}'`);
+            }
         } else {
-            console.log( `No message: '${m.msgId}' for state: '${this.current_state_name}'`);
+            console.error(`Session is ended. Message ${m.msgId} is discarded.`);
         }
     }   
     
@@ -524,27 +663,27 @@ export class Session<T> {
         const tr : Transition = state_for_message.transitionForMessage(m);
         const transition_event : string = tr.event;
                         
-        this.__invoke(transition_event+"_preGuard", m);
+        if ( !this.__invoke(transition_event+"_preGuard", m) ) {
 
-        this.__exitAllStatesUpToStateWithTransitionForMessage( state_for_message, m );
-        
-        this.__invoke( transition_event+"_transition", m );
+            this.__exitAllStatesUpToStateWithTransitionForMessage(state_for_message, m);
 
-        let next : State;
+            this.__invoke(transition_event + "_transition", m);
 
-        try {
-            this.__invoke( transition_event+"_postGuard", m );
-            next= tr.final_state;  
-        } catch( /*GuardException*/ e ) {
-            next = state_for_message;
+            let next:State;
+
+            if (! this.__invoke(transition_event + "_postGuard", m) ) {
+                next = tr.final_state;
+            } else {
+                next = state_for_message;
+            }
+
+            this.__setCurrentState(next, m);
+
+            if (next.isFinal()) {
+                this.__popAllStates(m);
+                this.__endSession(m);
+            }
         }
-
-        this.__setCurrentState( next, m );
-
-        if ( next.isFinal() ) {
-            this.__popAllStates( m );
-            this.__endSession( m );
-        }         
     }
 
     fireCustomEvent( message : any ) {
@@ -588,6 +727,17 @@ export class Session<T> {
 
     get controller() {
         return this._session_controller;
+    }
+
+    printStackTrace() {
+        if ( this._states.length===0 ) {
+            console.log("session empty");
+        } else {
+            console.log("session stack trace:");
+            this._states.forEach( function( s ) {
+                s.printStackTrace();
+            });
+        }
     }
 }
 

@@ -12,10 +12,9 @@
 
 import {Automata,Message,Session} from "../src/automata";
 
-context.registerFSM( {
+Automata.RegisterFSM( {
 
     name    : "Test2",
-
     state  : ["a","b","c"],
     initial_state : "a",
     transition : [
@@ -23,7 +22,10 @@ context.registerFSM( {
             event       : "ab",
             from        : "a",
             to          : "b",
-            timeout     : 4000
+            timeout     : {
+                millis : 4000,
+                data   : {}
+            }
         },
         {
             event   : "bc",
@@ -33,8 +35,59 @@ context.registerFSM( {
     ]
 } );
 
-Automata.CreateSession( new Controller(), "Test2" );
-Automata.CreateSession( new Controller(), "Test2" ).then(
+let __index= 0;
+
+class Controller {
+
+    name : string;
+
+    constructor( n : string ) {
+        this.name = n || "controller_"+__index++;
+    }
+
+    a_enter( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+state+" enter ");
+    };
+
+    a_exit( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+state+" exit ");
+    };
+
+    b_enter( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+state+" enter ");
+    };
+
+    b_exit( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+state+" exit ");
+    };
+
+    c_exit( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+state+" exit");
+    };
+
+    c_enter( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+state+" enter");
+    };
+
+    ab_transition( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+"transition: "+msg.msgId);
+    };
+
+    bc_transition( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+"transition: "+msg.msgId);
+    };
+
+    Test2_enter( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+state+" enter ");
+    };
+
+    Test2_exit( session : Session<Controller>, state : string, msg : Message ) {
+        console.log(this.name+" "+state+" exit ");
+    };
+}
+
+Automata.CreateSession( new Controller("c1"), "Test2" );
+Automata.CreateSession( new Controller("c2"), "Test2" ).then(
     function success( s : Session<Controller>, m : Message ) {
         s.dispatchMessage({msgId: "ab"});
     }
