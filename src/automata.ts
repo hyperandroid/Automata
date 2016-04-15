@@ -645,16 +645,12 @@ export class Session<T> {
             const state_for_message:State = this.__findStateWithTransitionForMessage(m);
 
             if (null !== state_for_message) {
-                try {
-                    this.__processMessage(state_for_message, m);
-                } catch (e) {
-                    console.error(`consume for message '${m.msgId}' got exception: `, e);
-                }
+                this.__processMessage(state_for_message, m);
             } else {
-                console.error(`No message: '${m.msgId}' for state: '${this.current_state_name}'`);
+                throw new Error(`No message: '${m.msgId}' for state: '${this.current_state_name}'`);
             }
         } else {
-            console.error(`Session is ended. Message ${m.msgId} is discarded.`);
+            throw new Error(`Session is ended. Message ${m.msgId} is discarded.`);
         }
     }   
     
@@ -765,8 +761,17 @@ export class SessionMessageControllerMessageQueue<T> {
 
         if ( this._messages_queue.length ) {
             const m = this._messages_queue.shift();
-            this._session.__messageImpl( m );
-            ret = false;
+
+            try {
+                this._session.__messageImpl(m);
+                ret = false;
+            } catch (e) {
+                console.error(`consume for message '${m.msgId}' got exception: `, e);
+                this._messages_queue= [];
+                this._callback.__error( this._session, e );
+                ret = true;
+            }
+
         } else {
             ret = true;
             if ( this._callback ) {

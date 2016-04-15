@@ -5,7 +5,7 @@ Current state of automata is version 2.x.x, which is not backward compatible wit
 ## Description
 
 Automata is a formal finite state machine (FDA) framework.
-It aims at offering a totally decoupled management of logic and data storage.
+It aims at offering a totally decoupled management of logic and data.
 It features all the needed elements to have a modern and flexible
 finite state machine framework like
 
@@ -29,141 +29,171 @@ or
 
 Automata will then expose an object with some functions:
 
-```javascript
-module.exports= {
- registerFSM,           // register a FDA object.
- registerFDA,           // same as registerFSM
- createSession,         // create a session for an FDA
- guardException,        // create a guard exception
- newSessionListener     // create a session listener overriding methods with the parameter object.
+#### Typescript
+```typescript
+export class Automata {
+    static RegisterFSM( file : string|FSMJson );
+    static CreateSession<T>( controller : T, fsm_name : string, o? : SessionObserver<T> ) : SessionConsumeMessagePromise<T>;
 }
 ```
 
-Or typescript definition:
-
-```typescript
-declare module Automata {
-
-    export function registerFSM( object:FSM.FSMDefinition );
-    export function registerFDA( object:FSM.FSMDefinition );
-    export function createSession( fda_name : string, controller : any ) : FSM.Session;
-    export function newGuardException( message : string ) : FSM.GuardException;
-    export function newSessionListener( obj : any ) : FSM.SessionListener;
-
+#### Javascript
+```javascript
+{
+    Automata : {
+        CreateSession(controller, name, session_observer?),
+        RegisterFSM( automata_def )
+    }
 }
 ```
 
 ## How it works
 
-In Automata, FDA (finite deterministic automaton) are declaratively defined. It is contstrained to `FSMDefinition`
-object.
-The Automata definition will be unique, and different execution `Session` objects will be created from there.
-Think of the FDA as the class, and the `Session` as the object. 
+In Automata, FDA (finite deterministic automaton) are declaratively defined. Their definition can be found in `FSMDefinition` object.
+The Automata definition will be unique, and properly registered in an internal registry.
+`Session` objects will be created from the automata. Think of the FDA as the class, and the `Session` as the object.
+ 
 For example, an FDA defines a Scrabble game. The sessions will be specific Scrabble games. Sessions keep track 
 of the current State as well as per-session Data associated with a session controller object. This controller is an
 arbitrary object you supply at session creation time.
 
-So, first of all, one or more FDA must be registered in the system by calling either registerFSM (
-register finite state machine) or registerFDA (register finite deterministic automaton). Both methods do the same, but
- I'd rather call `registerFDA`.
-In the FDA definition one State must be labeled as initial. This will be the entry point. 
-
-An example minimal state machine could be:
+A minimal example state machine could be:
 
 ```javascript
-fsmContext.registerFSM( {
-
-    // FDA registry name
-    name    : "Test",
-
-    // States
-    state  : [
+Automata.RegisterFSM({
+    name :          "Test1",
+    state :         ["a","b","c"],
+    initial_state : "a",
+    transition :    [
         {
-            name    : "1",
-            initial : true,
+            event       : "ab",
+            from        : "a",
+            to          : "b"
         },
         {
-            name    : "2",
-        },
-        {
-            name    : "3"
-        }
-    ],
-
-    // transitions
-    transition : [
-        {
-            event       : "12",
-            from        : "1",
-            to          : "2"
-        },
-        {
-            event       : "23",
-            from        : "2",
-            to          : "3"
+            event   : "bc",
+            from    : "b",
+            to      : "c"
         }
     ]
-} );
+});
 ```
 
-Only one State must be labeled as `initial`.
 To start using this machine, a `Session` must be created from a registered FDA. For example:
 
-```javascript
+```typescript
 
-// ControllerObject is an object that holds per-session data and FDA's activity function callbacks. 
-// Will come to it later.
-var session= fsmContext.createSession("Test", new SessionController() );
+const Controller = (function () {
+    function Controller() {
+    }
+    Controller.prototype.a_enter = function (session, state, msg) {
+        console.log(state + " enter ");
+    };
+    ;
+    Controller.prototype.a_exit = function (session, state, msg) {
+        console.log(state + " exit ");
+    };
+    ;
+    Controller.prototype.b_enter = function (session, state, msg) {
+        console.log(state + " enter ");
+    };
+    ;
+    Controller.prototype.b_exit = function (session, state, msg) {
+        console.log(state + " exit ");
+    };
+    ;
+    Controller.prototype.c_exit = function (session, state, msg) {
+        console.log(state + " exit");
+    };
+    ;
+    Controller.prototype.c_enter = function (session, state, msg) {
+        console.log(state + " enter");
+    };
+    ;
+    Controller.prototype.ab_transition = function (session, state, msg) {
+        console.log("transition: " + msg.msgId);
+    };
+    ;
+    Controller.prototype.bc_transition = function (session, state, msg) {
+        console.log("transition: " + msg.msgId);
+    };
+    ;
+    Controller.prototype.Test1_enter = function (session, state, msg) {
+        console.log(state + " enter ");
+    };
+    ;
+    Controller.prototype.Test1_exit = function (session, state, msg) {
+        console.log(state + " exit ");
+    };
+    ;
+    return Controller;
+}());
 
-// The session must ultimately be started in order to track FDA's activity:
-session.start();
 
+Automata.CreateSession(
+    new Controller(),
+    "Test1"
+).then(
+    function success( s : Session<Controller>, m : Message ) {
+        // session has been created and the controller object correctly attached.
+    },
+    function error( s : Session<Controller>, m : Error ) {
+        // something went wrong.
+    }
+);
 ```
 
-To send notification events to a session object, call consume method:
+To send notification events to a session object, call dispatchMessage method:
 
-```javascript
-session.consume( { msgId: "12" } ); 
+```typescript
+session.dispatchMessage( { msgId: "12" } ); 
 ```
 
 This is the most basic workflow, but some things must be taken into account:
 
-### Why create a session then start ?
+### Why create a session then success. Can't it be a synchronous call ?
 
-Session creation may internally trigger state changes.
-If you want to have a `SessionListener` object registered to track all these state changes, the `Session` lifecycle must
-be spanned in two different stages.
+Session creation may internally trigger state changes, so you never may be sure what Transition or State code defined
+in the Controller object will do. Also, you can dispatch a message to a session that is currently executing other dispatched
+ messages, or there may be a few other messages queued for the session.
+By nature, dispatching a message is totally asynchronous.
 
-```javascript
+### How can i be notified of all FSM activity.
 
-var session= fsmContext.createSession( ... );
-session.addListener( {
-  ...
-} );
+You can be notified of all the FSM activity bound to a `Session` by attaching an observer to the `Session` object.
+Since starting a `Session` may trigger internal state changes, you may want to pass the listener as the third optional
+parameter of type `SessionObserver<T>` to `Automata.CreateSession` like:
 
-session.start( function(session) {
-  // session started
-});
+```typescript
+Automata.CreateSession(
+    new Controller(),
+    "Test1",
+    {
+        contextCreated   : ( e : SessionObserverEvent<T> ) => {},
+        contextDestroyed : ( e : SessionObserverEvent<T> ) => {},
+        sessionEnded     : ( e : SessionObserverEvent<T> ) => {},
+        customEvent      : ( e : SessionObserverEvent<T> ) => {},
+        stateChanged     : ( e : SessionObserverEvent<T> ) => {}    
+    }
+).then(
+    function success( s : Session<Controller>, m : Message ) {
+        // session has been created and the controller object correctly attached.
+    },
+    function error( s : Session<Controller>, m : Error ) {
+        // something went wrong.
+    }
+);
 ```
 
-### Why a callback to `start` session or `consume` ?
+or Attach a listener at a later time by calling
 
-As we said before, a `Session` creation may internally trigger state changes. 
-For example, an FDA definition states that when entering its initial state, a message will be consumed which will fire
-a transition from state 'initial' to another one. 
-Since Automata's execution is fully asynchronous, by the time the call to `start` or `consume` ends, you definitely 
-can't be sure whether the session ended starting or not.
-The callback is guaranteed to be notified when `start` or `consume` methods and all internally triggered state changes 
-end.
-
-Another thing to note is that is will be fully safe to call `consume` right after ending a previous `consume` or 
-`start` method call. Automata treates user issued `consume` calls differently than `consume` calls triggered by a
-state or transition action execution.
+```typescript
+session.addObserver( ... )
+```
 
 ### FDA messages
 
-The `consume` method accepts as a valid message any object which conforms to the typedef `FSM.TransitionMessage`
-which has the following form:
+The `session.dispatchMessage` and `session.postMessage` methods accepts as a valid message any object which conforms to 
 
 ```json
 {
@@ -173,31 +203,43 @@ which has the following form:
 ```
 
 msgId's values must be the value defined in the **event** attribute present in the Transition
- FDA definition block.
+ FDA definition block. So, for a given `State`, a call to `session.dispatchMessage` will match an exit transition with
+ the passed-in message. 
+ 
+* If found, it  will start the process of State transition.
+* If not found, the message will be discarded by notifying an Error of `unknown exit transition for State 's'`
 
 A session accepts messages until it has reached a final State. From then and beyond, the session will
-toss exceptions if it has a message sent for consumption.
+toss Errors any message is dispatched or posted to it.
 
-### Session execution
+### Dispatch vs Post message.
 
-Until Automata V2, all session messages where synchronously consumed.
-From V2, all messages are **asynchronously** consumed, which renders Automata V2 incompatible with Automata V1.X.
-The synchronous consumption led to some unexpected problems like deep execution stack traces that could led to stackoverflow
-errors.
-In order to avoid execution callback errors, Automata V2 creates internal message queues. They work as follows:
+A session exposes two well defined method to interact with it.
 
-* for each user called `session.consume(callback)` method, a new message queue will be created. This queue will not be
- executed until all the previous message queues (user issued session.consume calls) end processing their messages.
-* for each framework called `session.consume(callback)` method, a new message will be added to the current message queue.
-Framework consume calls happen in the controller object, when the FDA callbacks get executed.
+`session.postMessage`, is expected to by the internal submission point of messages for a given Session. Controller methods
+ that wanted to trigger a State change request must call this method.
 
-When a message queue gets empty, the callback gets called.
+`session.dispatchMessage`, is expected to be the external submission point of messages for a given Session. Each call to 
+`dispatchMessage` will create an internal messages queue. This queue will be fed with all the internal State change 
+requests, which means `postMessage` will add messages to the currently executing Session's messages queue.
+
+The signature for `postMessage` is:
+
+`postMessage( m : Message )`
+
+while the signature for `dispatchMessage` is:
+
+`dispatchMessage<U extends Message>( m : U ) : SessionConsumeMessagePromise<T>` or in javascript> `dispatchMessage( message ) : SessionConsumeMessagePromise`
+The promise-like object returned by dispatchMessage will be invoked when the associated messages queue gets empty.
+This brings a level of execution isolation where once a message has been dispatched, all activity derived from it will
+be treated as an asynchronous atomic operation. It is thus guaranteed that this object will be notified only after all 
+internal transitions have ended. 
 
 ## Controller object
 
 The FDA logic and state are isolated. The developer supplies a custom FDA controller object when the `Session` is
 created.
-The `controller` object contains per session data, like for example the cards dealt in game, the authorization credentials,
+The `controller` object contains per session data, like for example the cards dealt in a game, the authorization credentials,
 or any other Session specific information. It also has callback functions for FDA specific hook points like 
 entering/exiting a `State` or executing a `Transition`.
 
@@ -205,123 +247,64 @@ For both, State and Transitions, the calling **this** scope will be the logic ob
 
 ## Activy hooks
 
-Automata offers many activy hooks on its activity. The following hooks are available:
+Automata offers many activity hooks:
 
 State and FDA:
 
-  * **onEnter**. Code fired on state enter.
-  * **onExit**. Code fired on state exit.
+  * **_enter**. Code fired on state enter.
+  * **_exit**. Code fired on state exit.
 
 
 Transition:
 
-  * **onTransition**. Code fired when the transition fires.
-  * **onPreGuard**. Code fired on transition fire but previously to onTransition. It can veto transition fire.
-  * **onPostGuard**. Code fired after onTransition execution. Could veto transition fire by issuing an auto-transition.
+  * **_transition**. Code fired when the transition fires.
+  * **_preGuard**. Code fired on transition fire but previously to onTransition. It can veto transition fire.
+  * **_postGuard**. Code fired after onTransition execution. Could veto transition fire by issuing an auto-transition.
 
 A natural transition flow of executed actions for a transition from StateA to StateB will be:
 
 ```
+// For an automata defined as follows:
+
+...
+state : ['a', 'b', 'c'],
+initial_state : 'a',
+transition : [
+  {
+    from : 'a',
+    to : 'b',
+    event : 'ab'
+  }
+]
+...
+
 StateA.onExit() -> Transition.onTransition() -> StateB.onEnter()
+
+// which translate into the following Controller methods (should they exist)
+
+a_exit( ... );
+ab_transition( ... );
+b_enter( ... );
+
 ```
 
-Those hooks are defined in the **FDA JSON** definition as in the example:
-
-
-```javascript
-/**
- * Define a session controller object.
- * @constructor
- */
-function controller() {
-
-    this.count= 0;
-
-    this.B_onEnter= function() {
-        console.log("Enter state B");
-        this.count++;
-    };
-
-    this.A_onExit= function() {
-        console.log("Exit state A");
-    };
-
-    this.TR_AB= function() {
-        console.log("Transition fire code");
-    }
-
-    return this;
-}
-
-/**
- * Define a FDA
- */
- fsmContext.registerFSM( {
-
-     // FDA registry name
-     name    : "Test",
-
-     // States
-     state  : [
-         {
-             name    : "A",
-             initial : true,
-             onExit  : "A_onExit"
-         },
-         {
-             name    : "B",
-             onEnter : "B_onEnter"
-         },
-         {
-            name    : "C"
-         }
-     ],
-
-     transition : [
-         {
-             event       : "AB",
-             from        : "A",
-             to          : "B",
-             onTransition: "TR_AB",
-         },
-         {
-             event       : "BC",
-             from        : "B",
-             to          : "C"
-         }
-     ]
- } );
-
- var session= fsmContext.createSession("Test", new controller());
- 
- session.start( function(session) {
-    session.dispatch( { msgId: "AB" } );
-     // this will print:
-     //  Exit state A
-     //  Transition fire code
-     //  Enter state B
- });
- 
-```
-
-The controller object can be notified automatically about Session changes in two different ways:
-
-* Configuration: supply callback functions in the FDA definition object.
-* Convention: the framework will automatically try to find methods in the controller object as follows:
+The controller object can only be notified automatically about Session changes  by Convention: 
+the framework will automatically try to find methods in the controller object as follows:
 
 * * State enter:            state.getName() + "_enter" 
 * * State exit:             state.getName() + "_exit" 
 * * Transition fire:        transition.getEvent() + "_transition" 
-* * Transition pre-guard:   transition.getEvent() + "preGuard" 
-* * Transition post-guard:  transition.getEvent() + "postGuard" 
+* * Transition pre-guard:   transition.getEvent() + "_preGuard" 
+* * Transition post-guard:  transition.getEvent() + "_postGuard" 
 
 State and Transition activity callbacks are of the form:
 
 ```javascript
-function( session, state, transition, msg );
+( session : Session<Controller_Type>, 
+  state : string, 
+  msg : Message ) => void;
 ```
-
-In any case, those functions will be automatically called if they exist in the logic object.
+Those functions will be automatically called **only if** they exist in the logic object.
 
 ## Guards
 
@@ -360,72 +343,43 @@ endif
 ```
 
  The way to instrument the engine that a guard veto has been fired, will be by throwing an exception from the
- pre/post-transition functions. A Guard is expected to throw a GuardException object by calling
-  `transition.createThrowable` method or `module.newGuardException`.
- Those functions are optional, and must be set in the "transition" block of the
- FDA definition as follows:
-
-```javascript
- fsmContext.registerFSM( {
-   ...,
-
-   transition : [
-        {
-            event        : "AB",
-            from         : "A",
-            to           : "B",
-            onTransition : "TR_AB",
-            onPreGuard   : "pre_guard_function",
-            onPostGuard  : "post_guard_function",
-        },
-        ...
-    ],
-
-    ...
- }
-```
-
- If no onPreGuard/onPostGuard attributes are specified, Automata FDA engine will assume a call to a convention method
- of the form:
+ pre/post-transition functions. A Guard is expected to throw an Error object by calling.
+ 
+ Guards are optional, and will be invoked only if they exist in the Controller object. The method names must be of the form:
 
  ```
  <event>_preGuard / <event>_postGuard.
  ```
 
- In this case:
- * AB_preGuard
- * AB_postGuard
-
+Event is the 'event' defined in the FSM definition transition block.
 
 ## Timed transitions
 
-Automata offers out of the box timed transitions by defining an **onTimer** block in a FDA definition. For example:
+Automata offers out of the box timed transitions by defining an **timeout** block in a transition definition block. For example:
 
 ```javascript
  fsmContext.registerFSM( {
 
     ...,
 
-    state  : [
-         {
-             name    : "1",
-             initial : true,
-             onTimer : {
-                 timeout : 2000,
-                 event   : "12"
-             },
-        }
-    ],
-
+    transition : [
+        {
+            event       : "ab",
+            from        : "a",
+            to          : "b",
+            timeout     : {
+                millis : 4000,
+                data   : {}
+            }
+        },
     ...
 
  } );
  ```
 
-This instruments the engine that after 2 seconds of entering this state, an event {msgId: "12"} will be sent to the 
-FDA session. The timer is handled automatically, and set/canceled on state enter/exit respectively.
-The timers are checked every 200 milliseconds by the unique instance of FSMContext object. Thus, if you need to have
-less than 200ms timers, you may want to change TIMER_CHECK_RESOLUTION in the automata.js file.
+This instruments the engine that after 4 seconds of entering `state a`, an event `{msgId: "ab"}` will be dispatched to the 
+`Session`. The timer is handled automatically, and set/canceled on state enter/exit respectively.
+Timers are set by calling `setTimeout`, and automatically handled by the javascript engine.
 
 ## SubStates
 
@@ -433,40 +387,60 @@ Automata allows to nest as much as needed substates. In fact, by defining a sing
 one for the FDA, and the other, initially for the FDA's initial state. To define different levels, you must
 register more than one FDA in the registry, and then reference one of them as a substate in the "state" section:
 
-```javascript
- fsmContext.registerFSM( {
-    ...
-    state  : [
+```typescript
+// Register one FSM model.
+Automata.RegisterFSM( {
+    name    : "SubStateTest",
+    state  : ["_1","_2","_3"],
+    initial_state : "_1",
+    transition : [
         {
-            name    : "a",
-            initial : true,
-            onEnter : "enter_a",
-            onExit  : "exit_a"
+            event       : "12",
+            from        : "_1",
+            to          : "_2"
         },
         {
-            subState: "STest"
-        },
-
-        ...
-
-    ],
-
-    ...
- } );
+            event       : "23",
+            from        : "_2",
+            to          : "_3"
+        }
+    ]
+} );
 ```
 
-Then, the transition section will identify this FDA as a substate by its name, STest. A "subState" can't have a
- regular name, nor onEnter/onExit functions. The name is the one of the FDA itself, and the activity hooks are
- overridden to do the stacking.
+To reference another Automata as substate, use the prefix `FSM:` for the state name:
 
- The stacking of different subStates is done transparently, and they are handled by the "session" object. For each
- stacked level, a FDA.Context object is created. A context object is just a holder for the current state for each 
- nesting level.
+```typescript
+
+Automata.RegisterFSM( {
+
+    name    : "Test4",
+    state  : ["a","b","FSM:SubStateTest","c"],
+    initial_state : "a",
+    transition : [
+        {
+            event       : "ab",
+            from        : "a",
+            to          : "b",
+        },
+        {
+            event   : "bc",
+            from    : "b",
+            to      : "SubStateTest",
+        },
+        {
+            event   : "cd",
+            from    : "SubStateTest",
+            to      : "c",
+        }
+    ]
+} );
+```
 
 ## Transition from Substates
 
 The way in which Automata manages state changes is made hierarchycally. That means, the engine will try to find a
-suitable transition for a given incoming message regardless of its nesting level.
+suitable transition for a given incoming message regardless of its depth level.
 So for any given FDA stacktrace, the engine will traverse upwards trying to find a suitable state to fire a
 transition for the dispatched event.
 
@@ -482,19 +456,19 @@ transition for the dispatched event.
 </pre>
 
 
-For example, given the previous example,
+For example, to a `Session` which is currently in `State S1`,
 
-```javascript
-session.consume( {msgId : "T_S1_S2" } );
+```typescript
+session.dispatchMessage( {msgId : "T_S1_S2" } );
 ```
 
-means the session is on state SS1, and the stackTrace will be the following:
+will make the session change state to `SS1`, and the stackTrace will be the following:
 
-ROOT, SUB_STATE, SS1
+`ROOT, SUB_STATE, SS1`
 
 By calling
 ```javascript
-session.consume( {msgId : "T_SS_S3" } );
+session.dispatchMessage( {msgId : "T_SS_S3" } );
 ```
 
 on the session at state SS1, SS1 will be removed from the stack (since SS2 is a final state), and the session will
@@ -502,50 +476,35 @@ transize to S3 state.
 Additionally, this session will be finished since S3 is a final State (this nesting level will be removed from the stack too),
 and so it is ROOT, which causes the session to be emptied.
 
-
 ## FDA listeners
 
-Any FDA session activity can be monitored by adding a listener.
+Any FDA `Session` activity can be monitored by adding one or more observers to it.
 For example:
 
 ```javascript
-session.addListener( new FDA.SessionListener() );
+session.addObserver( {
+    contextCreated(     e : SessionObserverEvent<T> ) : void;   // fired when the Session creates a new depth level
+    contextDestroyed(   e : SessionObserverEvent<T> ) : void;   // fired when the Session destroys a depth level
+    sessionEnded(       e : SessionObserverEvent<T> ) : void;   // session reached one of its final states.
+    customEvent(        e : SessionObserverEvent<T> ) : void;   // fire something by calling session.fireCustomEvent. 
+                                                                // for example, from the Controller object 
+    stateChanged(       e : SessionObserverEvent<T> ) : void;   // Session changed state (new and previous are available).
+
+ });
 ```
 
-or
+The event parameter for the observer methods is:
 
-```javascript
+```typescript
+export interface SessionObserverEvent<T> {
+    session :               Session<T>;
+    message :               Message;
+    custom_message? :       Message;
+    current_state_name :    string;
+    prev_state_name :       string;
+}
 
-// create a SessionListener and override the methods with the one in the parameter supplied.
-session.addListener( module.newSessionListener( {
-        contextCreated      : function( obj ) {
-            console.log("SessionListener contextCreated");
-        },
-        contextDestroyed    : function( obj ) {
-            console.log("SessionListener contextDestroyed");
-        },
-        finalStateReached   : function( obj ) {
-            console.log("SessionListener finalStateReached");
-        },
-        stateChanged        : function( obj ) {
-            console.log("SessionListener stateChanged");
-        },
-        customEvent         : function( obj ) {
-            console.log("SessionListener customEvent");
-        }
-    } 
-) );
 ```
-
-The obj parameter for each listener object function contains the following parameters:
-
-* **contextCreated**: FSM.SessionContextEvent
-* **contextDestroyed**: FSM.SessionContextEvent
-* **finalStateReached**: FSM.SessionFinalStateReachedEvent
-* **stateChanged**: FSM.SessionStateChangeEvent
-* **preGuard**: FSM.TransitionGuardEvent
-* **postGuard**: FSM.TransitionGuardEvent
-* **customEvent**: FSM.CustomEvent
 
 ## Custom events
 
@@ -568,177 +527,9 @@ customEvent         : function( ev : FSM.CustomEvent ) {
 This sample shows how to define common FDA session callback points. Either on logic object, or by defining a callback.
 In either case, **this** is defined to be the session's logic object.
 
-```javascript
-
-context= module.exports;
-
-var Controller= function() {
-
-    this.a_enter= function( session, state, transition, msg ) {
-        console.log("a enter "+state.toString());
-    };
-
-    this.a_exit= function( session, state, transition, msg ) {
-        console.log("a exit "+state.toString());
-    };
-
-    this.b_enter= function( session, state, transition, msg ) {
-        console.log("b enter "+state.toString());
-    };
-
-    this.b_exit= function( session, state, transition, msg ) {
-        console.log("b exit "+state.toString());
-    };
-
-    this.c_exit= function( session, state, transition, msg ) {
-        console.log("c exit "+state.toString());
-    };
-
-    this.ab_transition= function( session, state, transition, msg ) {
-        console.log("transition: "+transition.toString());
-    };
-
-    this.bc_transition= function( session, state, transition, msg ) {
-        console.log("transition: "+transition.toString());
-    };
-
-    this.Test1_enter= function( session, state, transition, msg ) {
-        console.log("test1 enter "+state.toString());
-    };
-
-    this.Test1_exit= function( session, state, transition, msg ) {
-        console.log("test1 exit "+state.toString());
-    };
-};
-
-context.registerFSM( {
-
-    name    : "Test1",
-
-    state  : [
-        {
-            name    : "a",
-            initial : true
-        },
-        {
-            name    : "b"
-        },
-        {
-            name    : "c",
-            onEnter : function( session, state, transition, msg ) {
-                console.log("Enter c");
-            }
-        }
-    ],
-
-    transition : [
-        {
-            event       : "ab",
-            from        : "a",
-            to          : "b"
-        },
-        {
-            event   : "bc",
-            from    : "b",
-            to      : "c"
-        }
-    ]
-} );
-
-var session= context.createSession({
-    fda: "Test1",
-    controller: new Controller()
-} );
-session.start( function onStartProcessEnds(session) {
-        session.consume( { msgId: "ab" } );
-        session.consume( { msgId: "bc" } );
-    }
-);
-
-
-```
-
 ## Sample 2 - FDA with timed events
 
-This sample show how to define a timed transition. Note this example has no FDA Controller.
-
-```javascript
-
-context= module.exports;
-
-
-context.registerFSM( {
-
-    name    : "Test2",
-
-    state  : [
-        {
-            name    : "a",
-            initial : true,
-            onExit  : function( session, state, transition, msg ) {
-                console.log("Exit a");
-            },
-            onTimer : {         // <-- Timed transition.
-                timeout: 4000,  //  after 4 seconds
-                event: {
-                    msgId: "ab" //  fire transition identified by "ab" if exists.
-                }
-            }
-        },
-        {
-            name    : "b",
-            onEnter : function( session, state, transition, msg ) {
-                console.log("Enter b");
-            }
-        },
-        {
-            name    : "c"
-        }
-    ],
-
-    transition : [
-        {
-            event       : "ab",
-            from        : "a",
-            to          : "b"
-        },
-        {
-            event   : "bc",
-            from    : "b",
-            to      : "c"
-        }
-    ]
-} );
-
-var session1= context.createSession({
-    fda: "Test2"
-});
-session1.start();
-
-var session2= context.createSession({
-    fda : "Test2"
-} );
-
-session2.start();
-session2.consume( {msgId : "ab"} );
-
-/*
-will print:
-
-immediately
-Exit a
-Enter b
-from session2 which has triggered a transition change
-
-and
-Exit a
-Enter b
-after 4 seconds from session1.
-*/
-
-*/
-
-```
+This sample show how to define a timed transition.
 
 ## Sample 3 - Guards
 
@@ -757,157 +548,6 @@ After firing the transition, the postGuard is checked. If this function **throws
 turns into auto-transition, that means firing state change to current-state, and entering again current state.
 If not, the transition continues its natural flow and transition's next state is set as current state.
 
-```javascript
-
-context= module.exports;
-
-
-var Controller= function() {
-
-    this.count= 0;
-
-    this.enter_b= function() {
-        console.log("enter b");
-    };
-
-    this.enter= function( session, state, transition, msg ) {
-        console.log("enter "+state.toString());
-    };
-
-    this.exit= function( session, state, transition, msg ) {
-        console.log("exit "+state.toString());
-    };
-
-    this.action= function( session, state, transition, msg ) {
-        console.log("transition: "+transition.toString());
-    };
-
-    this.pre_guard_tr_bc= function() {
-        this.count++;
-        console.log("count= "+this.count);
-        if ( this.count<3 ) {
-            throw context.newGuardException("PreGuard_tr_BC");
-        } else {
-            console.log("Ok, go.");
-        }
-    };
-
-    this.post_guard_tr_bc= function() {
-        this.count++;
-        console.log("count= "+this.count);
-        if ( this.count<5 ) {
-            throw context.newGuardException("PostGuard_tr_BC");
-        }
-    };
-
-    return this;
-};
-
-context.registerFSM( {
-
-    name    : "Test3",
-
-    state  : [
-        {
-            name    : "a",
-            initial : true,
-            onEnter : "enter",
-            onExit  : "exit"
-        },
-        {
-            name    : "b",
-            onEnter : "enter_b",
-            onExit  : "exit"
-        },
-        {
-            name    : "c",
-            onEnter : "enter",
-            onExit  : "exit"
-        },
-        {
-            name    : "d",
-            onEnter : "enter",
-            onExit  : "exit"
-        }
-    ],
-
-    transition : [
-        {
-            event       : "ab",
-            from        : "a",
-            to          : "b",
-            onTransition: "action"
-        },
-        {
-            event   : "bc",
-            from    : "b",
-            to      : "c",
-            onTransition: "action",
-            onPreGuard  : "pre_guard_tr_bc",
-            onPostGuard : "post_guard_tr_bc"
-        },
-        {
-            event   : "cd",
-            from    : "b",
-            to      : "c",
-            onTransition: "action"
-        }
-    ]
-} );
-
-var session= context.createSession({
-    fda: "Test3",
-    controller: new Controller()
-});
-
-session.addListener( context.newSessionListener( {
-    finalStateReached   : function( obj ) {
-        console.log("SessionListener finalStateReached " );
-    },
-
-    /**
-     *
-     * @param obj {FSM.SessionStateChangeEvent}
-     */
-    stateChanged        : function( obj ) {
-        var ps= obj.prevState ? obj.prevState.getName() : "none";
-        console.log("SessionListener stateChanged "+ps+" --> "+obj.state.getName() );
-    }
-} ) );
-
-// start session.
-session.start();
-
-console.log("");
-console.log("Sent 'ab'");
-session.consume( { msgId: "ab" } );
-
-// fail on pre-guard. count=1, but no notification of state change sent.
-console.log("");
-console.log("Sent 'bc'");
-session.consume( { msgId: "bc" } );
-
-// fail on pre-guard. count=2, but no notification of state change sent.
-console.log("");
-console.log("Sent 'bc'");
-session.consume( { msgId: "bc" } );
-
-// on pre-guard. count=3.
-// Ok go transition.
-// Fail on post-guard
-// so onExit State-b and onEnter State-b ( auto-transition ). Vetoed transition from State-b to State-c.
-// notification of 'stateChanged' on the observer.
-console.log("");
-console.log("Sent 'bc'");
-session.consume( { msgId: "bc" } );
-
-console.log("");
-console.log("Sent 'bc'");
-session.consume( { msgId: "bc" } );
-
-```
-
-
 ## Sample 4 - SubStates
 
 Sub States is an Automata feature which allows to nest different registered FDA as states of other FDA.
@@ -916,169 +556,3 @@ Automata will handle automatically all the nesting procedure, call the FDA actio
 current state.
 
 A substate, or a FDA does not define neither onEnter nor onExit function callbacks.
-
-It is done as follows:
-
-```javascript
-
-var context= module.exports;
-
-
-var Controller= function() {
-
-    this.enter= function( session, state, transition, msg ) {
-        console.log("Enter "+state.toString());
-    };
-
-    this.exit= function( session, state, transition, msg ) {
-        console.log("Exit "+state.toString());
-    };
-
-    this.transition= function(session, state, transition, msg ) {
-        console.log("transition "+transition.toString());
-    };
-
-    return this;
-};
-
-// Register one FSM model.
-context.registerFSM( {
-    name    : "SubStateTest",
-
-    state  : [
-        {
-            name    : "1",
-            initial : true,
-            onEnter : "enter",
-            onExit  : "exit"
-        },
-        {
-            name    : "2",
-            onEnter : "enter",
-            onExit  : "exit"
-        },
-        {
-            name    : "3",
-            onEnter : "enter",
-            onExit  : "exit"
-        }
-    ],
-
-    transition : [
-        {
-            event       : "12",
-            from        : "1",
-            to          : "2"
-        },
-        {
-            event       : "23",
-            from        : "2",
-            to          : "3"
-        }
-    ],
-
-    onExit : function() {
-        console.log("  --> Exit sub-automata SubStateTest");
-    },
-
-    onEnter : function() {
-        console.log("  --> Enter sub-automata SubStateTest");
-    }
-
-} );
-
-// register another FSM model
-
-context.registerFSM( {
-
-    name    : "Test4",
-
-    state  : [
-        {
-            name    : "a",
-            initial : true,
-            onEnter : "enter",
-            onExit  : "exit"
-        },
-        {
-            name    : "b",
-            onEnter : "enter",
-            onExit  : "exit"
-        },
-        {
-            subState: "SubStateTest"
-        },
-        {
-            name    : "c",
-            onEnter : "enter",
-            onExit  : "exit"
-        }
-    ],
-
-    transition : [
-        {
-            event       : "ab",
-            from        : "a",
-            to          : "b",
-            onTransition: "transition"
-        },
-        {
-            event   : "bc",
-            from    : "b",
-            to      : "SubStateTest",
-            onTransition: "transition"
-        },
-        {
-            event   : "cd",
-            from    : "SubStateTest",
-            to      : "c",
-            onTransition: "transition"
-        }
-    ],
-
-    onExit : function() {
-        console.log("  --> Exit automata Test4");
-    },
-
-    onEnter : function() {
-        console.log("  --> Enter automata Test4");
-    }
-
-} );
-
-var session= context.createSession({
-    fda : "Test4",
-    controller : new Controller()
-});
-
-session.start( function(session) {
-
-    session.consume({msgId: "ab"});
-    session.consume({msgId: "bc"}, function () {
-
-        // The session is now in State-1 on STest FSM.
-        session.printStackTrace();
-
-        // The stack trace is:
-        //   Test4
-        //   SubStateTest
-        //   1
-
-        session.consume( { msgId : "cd" }, function() {
-
-            // Although neither State-1 on SubStateTest, nor SubStateTest have a transition to "cd", Automata's engine traverses
-            // current Session's stack trace upwards trying to find a suitable State with an exit transition to "cd". In this case,
-            // SubStateTest itself consumes the transition, meaning the last Session's context will be poped out and the control flow
-            // will be transitioning from SubStateTest to State-c.
-
-            // After that call, the session will be empty, since State-c is final, and every context is poped out the session.
-            session.printStackTrace();
-
-            // prints: session empty.
-        } );
-
-    });
-
-});
-
-```

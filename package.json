@@ -1,6 +1,6 @@
 {
   "name": "automata",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "main": "./build/src/automata.js",
   "keywords": [
     "DFA",
