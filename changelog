@@ -1,4 +1,19 @@
-07-07-2016 *2.0.1*
+04-15/2016 *3.0.0*
+------------------
+
+This version is incompatible with V 2.x.x. Before upgrade, please check the following changes:
+
+* Full typscript rewrite. Now the .d.ts file is created from source, not manually maintained.
+* Automata definition format changed. Now States are defined in a string array, and initial state is explicitly set by
+defining `initial_state`.
+* Session Controller methods have changed signature: `session : Session<Controller>, state : string, msg : Message`. Transition
+ parameter has been removed because it is redundant (`msg.msgId` is the transition id).
+* `dispatchMessage` vs `postMessage`. Now, multiple sessions can create internal state changes in the correct way. External
+ message passing must be done by calling `dispatchMessage`. Controller methods that want to trigger an internal state
+ change must call `postMessge`.
+* Session and their controllers can be serialized/deserialized.
+
+07-07-2015 *2.0.1*
 ------------------
 
 * Fixed typescript definitions.
