@@ -30,7 +30,7 @@ export interface FSMJson {
 }
 
 export type SessionMessageCallback = <T>(session : Session<T>, message? : Message) => void;
-export type SessionMessageCallbackError = <T>(session : Session<T>, message? : string) => void;
+export type SessionMessageCallbackError = <T>(session : Session<T>, message? : Error) => void;
 
 export class SessionConsumeMessagePromise<T> {
     
@@ -50,7 +50,7 @@ export class SessionConsumeMessagePromise<T> {
         this._success && this._success( s, m );
     }
 
-    __error( s : Session<T>, message? : string ) {
+    __error( s : Session<T>, message? : Error ) {
         this._error && this._error( s, message );
     }
 }
@@ -87,13 +87,13 @@ export class FSMRegistry {
                 (session : Session<T>, m: Message) : void => {
                     promise.__success( session, m );
                 },
-                (session : Session<T>, m : string) : void => {
+                (session : Session<T>, m : Error) : void => {
                     promise.__error( session, m );
                 }
             );
         } else {
             setImmediate( function() {
-                promise.__error( null, "Unkonwn automata: '"+fsm_id+"'");
+                promise.__error( null, new Error("Unkonwn automata: '"+fsm_id+"'") );
             } );
         }
         
@@ -498,12 +498,16 @@ export class Session<T> {
      * User side message.
      */
     dispatchMessage<U extends Message>( m : U ) : SessionConsumeMessagePromise<T> {
-        if ( this._ended ) {
-            throw "Session is ended.";
-        }
-
         const c : SessionConsumeMessagePromise<T> = new SessionConsumeMessagePromise();
-        this._messages_controller.dispatchMessage( m, c );
+
+        if ( this._ended ) {
+            setTimeout( ()=> {
+                c._error(this, new Error('Session ended'));
+            }, 0 );
+        } else {
+            this._messages_controller.dispatchMessage(m, c);
+        }
+        
         return c;
     }
     
@@ -766,7 +770,7 @@ export class SessionMessageControllerMessageQueue<T> {
                 this._session.__messageImpl(m);
                 ret = false;
             } catch (e) {
-                console.error(`consume for message '${m.msgId}' got exception: `, e);
+                // console.error(`consume for message '${m.msgId}' got exception: `, e);
                 this._messages_queue= [];
                 this._callback.__error( this._session, e );
                 ret = true;

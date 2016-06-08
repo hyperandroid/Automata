@@ -26,14 +26,14 @@ export interface FSMJson {
     transition: TransitionJson[];
 }
 export declare type SessionMessageCallback = <T>(session: Session<T>, message?: Message) => void;
-export declare type SessionMessageCallbackError = <T>(session: Session<T>, message?: string) => void;
+export declare type SessionMessageCallbackError = <T>(session: Session<T>, message?: Error) => void;
 export declare class SessionConsumeMessagePromise<T> {
     _success: SessionMessageCallback;
     _error: SessionMessageCallbackError;
     constructor();
     then(ok: SessionMessageCallback, error?: SessionMessageCallbackError): this;
     __success(s: Session<T>, m: Message): void;
-    __error(s: Session<T>, message?: string): void;
+    __error(s: Session<T>, message?: Error): void;
 }
 export declare class FSMRegistry {
     static _fsm: GenericMap<FSM>;

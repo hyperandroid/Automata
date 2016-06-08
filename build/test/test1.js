@@ -71,6 +71,6 @@ automata_1.Automata.CreateSession(new Controller(), "Test1").then(function succe
         console.log("-------------- by message " + m.msgId);
     });
 }, function error(s, m) {
-    console.log("Error creating Session of type Test1, reason: '" + m + "'");
+    console.log("Error creating Session of type Test1, reason: '" + m.message + "'");
 });
 //# sourceMappingURL=test1.js.map

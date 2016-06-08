@@ -56,7 +56,7 @@ var FSMRegistry = (function () {
         }
         else {
             setImmediate(function () {
-                promise.__error(null, "Unkonwn automata: '" + fsm_id + "'");
+                promise.__error(null, new Error("Unkonwn automata: '" + fsm_id + "'"));
             });
         }
         return promise;
@@ -362,11 +362,16 @@ var Session = (function () {
      * User side message.
      */
     Session.prototype.dispatchMessage = function (m) {
-        if (this._ended) {
-            throw "Session is ended.";
-        }
+        var _this = this;
         var c = new SessionConsumeMessagePromise();
-        this._messages_controller.dispatchMessage(m, c);
+        if (this._ended) {
+            setTimeout(function () {
+                c._error(_this, new Error('Session ended'));
+            }, 0);
+        }
+        else {
+            this._messages_controller.dispatchMessage(m, c);
+        }
         return c;
     };
     /**
@@ -597,7 +602,7 @@ var SessionMessageControllerMessageQueue = (function () {
                 ret = false;
             }
             catch (e) {
-                console.error("consume for message '" + m.msgId + "' got exception: ", e);
+                // console.error(`consume for message '${m.msgId}' got exception: `, e);
                 this._messages_queue = [];
                 this._callback.__error(this._session, e);
                 ret = true;

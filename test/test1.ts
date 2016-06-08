@@ -86,9 +86,9 @@ Automata.CreateSession(
             }
         );
     },
-    function error( s : Session<Controller>, m : string ) {
+    function error( s : Session<Controller>, m : Error ) {
 
-        console.log("Error creating Session of type Test1, reason: '"+m+"'");
+        console.log("Error creating Session of type Test1, reason: '"+m.message+"'");
     }
 );
 
