@@ -139,5 +139,6 @@ automata_1.Automata.CreateSession(new Controller("c1"), "Test3", {
     console.log("");
     console.log("Sent 'bc'");
     session.dispatchMessage({ msgId: "bc" });
+    session.dispatchMessage({ msgId: "bc" }).then(function () { }, function (session, err) { console.error(err.message); });
 });
 //# sourceMappingURL=test3.js.map

@@ -31,14 +31,17 @@ var FSMRegistry = (function () {
         return FSMRegistry._fsm[id];
     };
     FSMRegistry.register = function (fsm_json) {
+        var ret = null;
         try {
             var fsm = new FSM(fsm_json);
             FSMRegistry._fsm[fsm.name] = fsm;
             console.log("Registered Automata '" + fsm.name + "'");
+            ret = fsm;
         }
         catch (e) {
             console.error(e);
         }
+        return ret;
     };
     FSMRegistry.createSession = function (session_controller, fsm_id, o) {
         var promise = new SessionConsumeMessagePromise();
@@ -325,28 +328,39 @@ var Session = (function () {
         }
         return {};
     };
-    Session.prototype.serialize = function () {
+    Session.prototype.serialize = function (from_registry) {
         var serializedController = this.__serializeController();
         return {
             ended: this._ended,
-            fsm: this._fsm.serialize(),
+            fsm: from_registry ? this._fsm.name : this._fsm.serialize(),
             states: this._states.map(function (st) { return st.serialize(); }),
             controller: serializedController
         };
     };
-    Session.deserialize = function (s, deserializer) {
+    Session.deserialize = function (s, deserializer, from_registry) {
         var controller = deserializer(s.controller);
         var session = new Session(controller);
-        session.__deserialize(s);
+        session.__deserialize(s, from_registry);
         return session;
     };
-    Session.prototype.__deserialize = function (s) {
+    Session.prototype.__deserialize = function (s, from_registry) {
         var _this = this;
-        FSMRegistry.register(s.fsm);
-        this._fsm = FSMRegistry.FSMFromId(s.fsm.name);
+        if (!from_registry) {
+            this._fsm = FSMRegistry.register(s.fsm);
+        }
+        else {
+            if (typeof s.fsm === 'string') {
+                // try automata saved as string.
+                this._fsm = FSMRegistry.FSMFromId(s.fsm);
+            }
+            else {
+                // if not, assume it was saved as fully serialized automata, but loading it was saved as automata name.
+                this._fsm = FSMRegistry.FSMFromId(s.fsm.name);
+            }
+        }
         this._ended = s.ended;
         this._states = s.states.map(function (e) {
-            var c = e.current_state === s.fsm.name ?
+            var c = e.current_state === _this._fsm.name ?
                 _this._fsm :
                 _this._fsm._states.filter(function (s) { return s._name === e.current_state; })[0];
             var p = e.prev_state === "" ?
@@ -522,7 +536,7 @@ var Session = (function () {
             }
             this.__setCurrentState(next, m);
             if (next.isFinal()) {
-                this.__popAllStates(m);
+                // this.__popAllStates(m);
                 this.__endSession(m);
             }
         }

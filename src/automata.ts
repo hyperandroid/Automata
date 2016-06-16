@@ -63,14 +63,19 @@ export class FSMRegistry {
         return FSMRegistry._fsm[id];
     }
     
-    static register( fsm_json : FSMJson ) {
+    static register( fsm_json : FSMJson ) : FSM {
+
+        let ret : FSM = null;
         try {
             let fsm = new FSM(fsm_json);
             FSMRegistry._fsm[fsm.name] = fsm;
             console.log("Registered Automata '"+fsm.name+"'");
+            ret=fsm;
         } catch( e ) {
             console.error(e);
         }
+
+        return ret;
     }
     
     static createSession<T>( session_controller : T, fsm_id : string, o? : SessionObserver<T> ) : SessionConsumeMessagePromise<T> {
@@ -408,7 +413,7 @@ export interface SerializedSession {
     ended : boolean,
     controller : any,
     states : SerializedSessionContext[],
-    fsm : FSMJson
+    fsm : FSMJson | string
 }
 
 export class Session<T> {
@@ -452,34 +457,44 @@ export class Session<T> {
         return {};
     }
 
-    serialize() : SerializedSession {
+    serialize( from_registry?:boolean ) : SerializedSession {
 
         const serializedController = this.__serializeController();
 
         return {
             ended :     this._ended,
-            fsm :       this._fsm.serialize(),
+            fsm :       from_registry ? this._fsm.name : this._fsm.serialize(),
             states :    this._states.map( st => st.serialize() ),
             controller: serializedController
         };
     }
 
-    static deserialize<T,U>( s : SerializedSession, deserializer : (sg : U) => T ) : Session<T> {
+    static deserialize<T,U>( s : SerializedSession, deserializer : (sg : U) => T, from_registry?:boolean ) : Session<T> {
 
         const controller : T = deserializer( s.controller );
         const session : Session<T> = new Session( controller );
-        session.__deserialize( s );
+        session.__deserialize( s, from_registry );
 
         return session;
     }
 
-    __deserialize( s : SerializedSession ) {
+    __deserialize( s : SerializedSession, from_registry?:boolean ) {
 
-        FSMRegistry.register( s.fsm );
-        this._fsm= FSMRegistry.FSMFromId( s.fsm.name );
+        if ( !from_registry ) {
+            this._fsm = FSMRegistry.register(s.fsm as FSMJson);
+        } else {
+            if ( typeof s.fsm==='string' ) {
+                // try automata saved as string.
+                this._fsm = FSMRegistry.FSMFromId(s.fsm as string);
+            } else {
+                // if not, assume it was saved as fully serialized automata, but loading it was saved as automata name.
+                this._fsm = FSMRegistry.FSMFromId((s.fsm as FSMJson).name);
+            }
+        }
+
         this._ended = s.ended;
         this._states = s.states.map( e => {
-            const c : State = e.current_state === s.fsm.name ?
+            const c : State = e.current_state === this._fsm.name ?
                 this._fsm :
                 this._fsm._states.filter( s => s._name===e.current_state )[0];
             const p : State = e.prev_state === "" ?
@@ -680,7 +695,7 @@ export class Session<T> {
             this.__setCurrentState(next, m);
 
             if (next.isFinal()) {
-                this.__popAllStates(m);
+                // this.__popAllStates(m);
                 this.__endSession(m);
             }
         }

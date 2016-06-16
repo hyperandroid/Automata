@@ -38,7 +38,7 @@ export declare class SessionConsumeMessagePromise<T> {
 export declare class FSMRegistry {
     static _fsm: GenericMap<FSM>;
     static FSMFromId(id: string): FSM;
-    static register(fsm_json: FSMJson): void;
+    static register(fsm_json: FSMJson): FSM;
     static createSession<T>(session_controller: T, fsm_id: string, o?: SessionObserver<T>): SessionConsumeMessagePromise<T>;
 }
 export interface StateAutoTransitionElement {
@@ -124,7 +124,7 @@ export interface SerializedSession {
     ended: boolean;
     controller: any;
     states: SerializedSessionContext[];
-    fsm: FSMJson;
+    fsm: FSMJson | string;
 }
 export declare class Session<T> {
     _fsm: FSM;
@@ -137,9 +137,9 @@ export declare class Session<T> {
     constructor(session_controller: T);
     __initialize(fsm: FSM): SessionConsumeMessagePromise<T>;
     __serializeController(): any;
-    serialize(): SerializedSession;
-    static deserialize<T, U>(s: SerializedSession, deserializer: (sg: U) => T): Session<T>;
-    __deserialize(s: SerializedSession): void;
+    serialize(from_registry?: boolean): SerializedSession;
+    static deserialize<T, U>(s: SerializedSession, deserializer: (sg: U) => T, from_registry?: boolean): Session<T>;
+    __deserialize(s: SerializedSession, from_registry?: boolean): void;
     addObserver(o: SessionObserver<T>): void;
     /**
      * User side message.

@@ -1,7 +1,20 @@
+06-16-2016 *3.0.4*
+------------------
+* Session serialize/deserialize has an optional parameter 'from_registry'. It set, the FSM serialization will serialize
+FSM's name instead of the automata definition, and deserialization, will get the automata fro the registry instead the
+embedded definition.
+* Ended session's don't have their stack emptied. It is necessary to get end state's name when `current_state_name`
+is called.
+
+06-08-2016 *3.0.3*
+------------------
+* Finished session don't remove `state` info. Necessary to make `currentStateName` and `currentState` to give information
+about the last state before getting session finished.
+
 06-08-2016 *3.0.2*
 ------------------
 
-`dispatchMessage` now notifies on `onError` callback if the session is finished. Previously it threw an error, making mandatory to wrap dispatchMessage methods with try/catch.
+* `dispatchMessage` now notifies on `onError` callback if the session is finished. Previously it threw an error, making mandatory to wrap dispatchMessage methods with try/catch.
 Error callbacks have been refactored to return an Error instead of string.
 
 

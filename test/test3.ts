@@ -168,6 +168,10 @@ Automata.CreateSession(
         console.log("");
         console.log("Sent 'bc'");
         session.dispatchMessage( { msgId: "bc" } );
+        session.dispatchMessage( { msgId: "bc" } ).then(
+            () => {},
+            (session:Session<Controller>, err:Error) => {console.error( err.message )}
+        );
     }
 );
 
