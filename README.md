@@ -1,6 +1,6 @@
 ## Automata
 
-A finite state machine framework.
+A deterministic finite state machine framework.
 
 Supports:
 
