@@ -381,10 +381,16 @@ Once registered, obtaining a session is quite simple:
 e.g.
 
 ```
-Registry.SessionFor( 
+const session = Registry.SessionFor( 
     "Test4",                // a registered FSM
     new ClientState()      // a client State object
 );
+
+session.dispatchMessage({
+    event:"an_event", 
+    payload: {}         // extra payload received in the Action's 
+                        // StateInvocationParams message object.
+});
 ```
 
 ### Examples
