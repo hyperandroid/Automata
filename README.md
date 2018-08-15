@@ -1,4 +1,4 @@
-##Automata
+## Automata
 
 A finite state machine framework.
 
@@ -9,7 +9,7 @@ Supports:
 + internal/external transitions
 + guards
 
-###Why
+### Why
 
 Switch/Case blocks, or even worse, logic stored in multiple variables are a poor design choice.
 Automata brings in logic control by managing your system's complexity automatically. 
@@ -56,9 +56,9 @@ session.dispatch("ef"); // discard this message. State B has no 'ef' transition
 session.dispatch("bc");
 ```
 
-###Automata components
+### Automata components
 
-####FSM, States and transitions
+#### FSM, States and transitions
 
 In Automata, a FSM is an immutable entity, so are the states and transitions that conform it.
 It is just a directed graph of nodes (`States`) connected by `Transitions`.
@@ -92,7 +92,7 @@ the following sequence of functions is called:
 
 These actions are optional, and are defined in the `Session client state` object.
 
-####Session
+#### Session
 
 The session object has two main responsibilities:
 + it keeps track of one specific internal FSM state. 
@@ -235,7 +235,7 @@ a valid transition from `@Sub -- to --> B`, resulting in the following action ca
 + transition sb
 + state B enter
 
-####Guards
+#### Guards
 
 A `Guard` is a condition associated to a `Transition` which can prevent the normal 
 flow of events triggered by the transition.
@@ -287,7 +287,7 @@ session.dispatchMessage(
 Also note that all events sent to Automata, execute in a `try/catch` block. The catch error will be
 notified to the error function of the optional consumption execution promise.
 
-###Session serialisation
+### Session serialisation
 
 By default, a Session serializes its FSM definition, and its internal state.
 There's no way for Automata to know what parts of the ClientState are transient of how to
@@ -315,7 +315,7 @@ const session2 = Session.Deserialize(
 The session serializes the FSM needed to build it, w/o polluting the FSM Registry.
 The idea is to be self contained, so a `Session` knows how to restore its internal state.
 
-###Session observers
+### Session observers
 
 While `Session` objects actions are choreographed by Automata framework, it is interesting to
 know about certain important Session events.
@@ -348,7 +348,7 @@ export interface SessionObserver<T> {
 }
 ``` 
 
-###FSM Registry
+### FSM Registry
 
 The `Registry` keeps FSM definitions and allows to create multiple sessions for the same FSM.
 Serialized sessions don't add new FSM entries to the `Registry`.
@@ -387,7 +387,7 @@ Registry.SessionFor(
 );
 ```
 
-###Examples
+### Examples
 
 Going directly to the complex example.
 I include the FSM definition of one of my multiplayer games, a full clone of Scrabble/Word with friends
