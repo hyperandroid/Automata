@@ -1,13 +1,13 @@
 {
   "name": "automata",
   "version": "4.0.0",
-  "main": "./lib/automata.js",
+  "main": "./lib/Registry.js",
   "keywords": [
     "DFA",
     "state machine",
     "automata"
   ],
-  "author": "hyperandroid <hyperandroid@gmail.com> (http://labs.hyperandroid.com)",
+  "author": "hyperandroid <hyperandroid@gmail.com> (http://medium.com/@hyperandroid)",
   "description": "Automata is a Deterministic Finite State Machine automata framework featuring: a JSON based automata definition, timed transitions, sub-states, guards, FSM registry, etc.",
   "repository": {
     "type": "git",

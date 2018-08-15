@@ -1,6 +1,6 @@
 import {FSMCollectionJson} from "./FSM";
 import {Message} from "./Transition";
-import Session, {SessionConsumeMessagePromise, SessionObserver} from "./Session";
+import Session, {SessionConsumeMessagePromise} from "./Session";
 import {StateInvocationParams} from "./SessionStateHelper";
 import Registry from "./Registry";
 
